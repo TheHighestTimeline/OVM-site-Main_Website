@@ -45,7 +45,7 @@
         .mobile-toggle span{width:18px;height:1.5px;background:var(--white)}
 
         /* HERO */
-        .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:140px 48px 120px;position:relative;overflow:hidden}
+        .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:130px 48px 70px;position:relative;overflow:hidden}
         .hero::before{content:'';position:absolute;top:40%;left:50%;width:1000px;height:1000px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(77,139,245,0.06) 0%,transparent 55%);pointer-events:none}
         .hero-content{max-width:820px;position:relative;z-index:1}
         .hero-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:var(--accent2);margin-bottom:32px;opacity:0;animation:softIn 1.2s .2s forwards}
@@ -72,7 +72,7 @@
         .bundle-text p{font-size:13px;color:var(--muted);font-weight:300;margin-top:2px}
 
         /* SECTIONS */
-        section{padding:120px 48px}
+        section{padding:88px 48px}
         .inner{max-width:1200px;margin:0 auto}
         .s-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--accent2);margin-bottom:14px}
         .s-title{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,4vw,52px);font-weight:300;margin-bottom:14px;letter-spacing:-0.3px;line-height:1.15}
@@ -116,7 +116,7 @@
         .gallery-card-tag{position:absolute;top:10px;right:10px;font-size:8px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;background:rgba(77,139,245,0.15);color:var(--accent-bright);padding:3px 7px;border-radius:3px}
 
         /* MANIFESTO */
-        .manifesto{padding:140px 48px;text-align:center}
+        .manifesto{padding:80px 48px;text-align:center}
         .manifesto-text{font-family:'Cormorant Garamond',serif;font-size:clamp(26px,4vw,48px);font-weight:300;line-height:1.4;max-width:800px;margin:0 auto;color:var(--off)}
         .manifesto-text em{font-style:italic;color:var(--accent-bright)}
 
@@ -144,7 +144,7 @@
 
         /* INQUIRY */
         .inquiry-section{background:var(--bg2);border-top:1px solid var(--border)}
-        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start;margin-top:48px}
+        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;margin-top:48px}
         .form-intro p{font-size:15px;color:var(--muted);line-height:1.85;margin-bottom:24px;font-weight:300}
         .form-intro .note{font-size:13px;color:var(--dim);border-left:2px solid var(--accent-border);padding-left:16px;line-height:1.7;font-weight:300}
         .form-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px}
@@ -159,29 +159,27 @@
         .form-fine{font-size:10px;color:var(--dim);text-align:center;margin-top:12px;font-weight:300}
 
         /* PORTFOLIO */
-        .portfolio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px}
-        .portfolio-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .5s cubic-bezier(.25,1,.5,1)}
-        .portfolio-card:hover{border-color:var(--accent-border);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.35)}
-        .portfolio-img{width:100%;height:200px;overflow:hidden;background:var(--bg3)}
-        .portfolio-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.25,1,.5,1)}
-        .portfolio-card:hover .portfolio-img img{transform:scale(1.05)}
-        .portfolio-info{padding:24px}
-        .portfolio-info h4{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;margin-bottom:4px}
-        .portfolio-info p{font-size:12px;color:var(--dim);font-weight:300}
+        #portfolio{padding-top:64px}
+        .portfolio-carousel{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x proximity;padding:8px 4px 16px;margin:40px -4px 0;-webkit-overflow-scrolling:touch}
+        .portfolio-carousel::-webkit-scrollbar{height:4px}
+        .portfolio-carousel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+        .pf-card{scroll-snap-align:start;flex:0 0 auto;width:340px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;text-decoration:none;color:inherit;display:block;transition:all .45s cubic-bezier(.25,1,.5,1)}
+        .pf-card:hover{border-color:var(--accent-border);transform:translateY(-4px);box-shadow:0 16px 44px rgba(0,0,0,0.4)}
+        .pf-img{width:100%;aspect-ratio:16/10.5;overflow:hidden;background:var(--bg3)}
+        .pf-img img{width:100%;height:100%;object-fit:cover;object-position:top;display:block;transition:transform .6s cubic-bezier(.25,1,.5,1)}
+        .pf-card:hover .pf-img img{transform:scale(1.04)}
+        .pf-info{padding:22px 24px}
+        .pf-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+        .pf-tags span{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);background:var(--accent-dim);border:1px solid var(--accent-border);padding:3px 8px;border-radius:4px}
+        .pf-info h4{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:400;margin-bottom:6px}
+        .pf-info p{font-size:12.5px;color:var(--dim);font-weight:300;line-height:1.65;margin-bottom:14px}
+        .pf-link{font-size:11px;font-weight:500;color:var(--off);letter-spacing:0.3px;display:inline-flex;align-items:center;gap:5px;transition:color .3s}
+        .pf-card:hover .pf-link{color:var(--accent-bright)}
 
-        /* PORTFOLIO CTA */
-        .portfolio-cta{position:relative;margin-top:64px;padding:72px 56px;background:linear-gradient(180deg,#0C0E13 0%,#0A0B0F 100%);border:1px solid var(--border);border-radius:20px;overflow:hidden;text-align:center}
-        .portfolio-cta::before{content:'';position:absolute;top:-40%;left:50%;width:720px;height:720px;transform:translateX(-50%);background:radial-gradient(circle,rgba(77,139,245,0.08) 0%,transparent 60%);pointer-events:none}
-        .portfolio-cta::after{content:'';position:absolute;inset:0;border-radius:20px;padding:1px;background:linear-gradient(180deg,rgba(77,139,245,0.18),transparent 55%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
-        .portfolio-cta-inner{position:relative;z-index:1;max-width:680px;margin:0 auto}
-        .portfolio-cta-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:var(--accent2);margin-bottom:20px}
-        .portfolio-cta h3{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,4.2vw,46px);font-weight:300;line-height:1.12;letter-spacing:-0.5px;margin-bottom:18px;color:var(--white)}
-        .portfolio-cta p.portfolio-cta-body{font-size:15px;font-weight:300;line-height:1.75;color:var(--muted);max-width:520px;margin:0 auto 36px}
-        .portfolio-cta-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-        .portfolio-cta-btns .btn-accent,.portfolio-cta-btns .btn-outline{min-width:168px}
-        .portfolio-cta-fine{font-size:12px;color:var(--dim);font-weight:300;margin-top:28px;letter-spacing:0.2px}
-        .portfolio-cta-fine a{color:var(--off);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);transition:color .3s,border-color .3s}
-        .portfolio-cta-fine a:hover{color:var(--accent2);border-color:var(--accent-border)}
+        /* PORTFOLIO FINE */
+        .portfolio-fine{margin-top:8px;font-size:13px;color:var(--dim);font-weight:300}
+        .portfolio-fine a{color:var(--off);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);transition:color .3s,border-color .3s}
+        .portfolio-fine a:hover{color:var(--accent2);border-color:var(--accent-border)}
 
         /* FOOTER */
         footer{padding:48px;border-top:1px solid var(--border)}
@@ -219,10 +217,7 @@
             .flip-front{position:relative}.flip-back{position:relative;transform:none;display:none}
             .flip-card.flipped .flip-front{display:none}.flip-card.flipped .flip-back{display:flex}
             .form-grid{grid-template-columns:1fr;gap:32px}
-            .portfolio-grid{grid-template-columns:1fr}
-            .portfolio-cta{padding:56px 28px;margin-top:48px}
-            .portfolio-cta-btns{flex-direction:column;align-items:stretch}
-            .portfolio-cta-btns .btn-accent,.portfolio-cta-btns .btn-outline{width:100%}
+            .pf-card{width:280px}
             .enterprise-card{padding:36px 24px}
         }
         @media(max-width:640px){.tiles-grid{grid-template-columns:1fr}}
@@ -237,9 +232,9 @@
     </a>
     <div class="nav-links" id="navLinks">
         <a href="#top" onclick="window.scrollTo({top:0,behavior:'smooth'})">Home</a>
-        <a href="#mission">About</a>
-        <a href="#solutions">Services</a>
         <a href="#portfolio">Portfolio</a>
+        <a href="#solutions">Services</a>
+        <a href="#mission">About</a>
         <a href="#contact" class="nav-cta">Contact</a>
     </div>
     <div class="mobile-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')"><span></span><span></span><span></span></div>
@@ -255,6 +250,81 @@
             <a href="#contact" class="btn-accent" onclick="clearForm()">Book a Call</a>
             <a href="#solutions" class="btn-outline">Explore Solutions</a>
         </div>
+    </div>
+</section>
+
+<!-- PORTFOLIO -->
+<section id="portfolio">
+    <div class="inner">
+        <div class="s-eyebrow reveal">Live Work</div>
+        <h2 class="s-title reveal">Real Sites We've Shipped</h2>
+        <p class="s-sub reveal">A running list of live builds across e-commerce, SaaS, mobile, and brand platforms &mdash; click through to see them in production.</p>
+        <div class="portfolio-carousel reveal">
+            <a class="pf-card" href="https://lilitile.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-lilitile.jpg" alt="LiLi Tile website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>Branding</span><span>E-Commerce</span></div>
+                    <h4>LiLi Tile</h4>
+                    <p>A luxury tile brand brought fully online &mdash; identity, product photography, and a seamless e-commerce experience built to convert.</p>
+                    <span class="pf-link">lilitile.com &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://tilearmor.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-tilearmor.jpg" alt="Tile Armor website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>Product Launch</span><span>Marketing</span></div>
+                    <h4>Tile Armor</h4>
+                    <p>A first-of-its-kind tile protection product launched with a bold go-to-market site and conversion-focused campaign pages.</p>
+                    <span class="pf-link">tilearmor.com &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://dockbridge.io" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-dockbridge.jpg" alt="DockBridge website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>SaaS</span><span>Full-Stack</span></div>
+                    <h4>DockBridge</h4>
+                    <p>A SaaS platform enabling seamless integrations between marina management software and third-party systems.</p>
+                    <span class="pf-link">dockbridge.io &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://tavliapp.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-tavliapp.jpg" alt="Tavli App website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>Mobile App</span><span>UX Design</span></div>
+                    <h4>Tavli App</h4>
+                    <p>A classic board game reimagined as a modern mobile experience &mdash; concept, UX, full development, and launch.</p>
+                    <span class="pf-link">tavliapp.com &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://initpic.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-initpic.jpg" alt="InitPic website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>iOS</span><span>Android</span><span>AI</span></div>
+                    <h4>InitPic</h4>
+                    <p>An AI-powered mobile app live on the App Store and Google Play, helping users generate and share profile images.</p>
+                    <span class="pf-link">initpic.com &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://roomtothinkpodcast.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-roomtothink.jpg" alt="Room to Think Podcast website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>Podcast</span><span>Content Strategy</span></div>
+                    <h4>Room to Think Podcast</h4>
+                    <p>A complete digital home for a thought-leadership podcast &mdash; brand voice, episode artwork, and a clear path to subscribe.</p>
+                    <span class="pf-link">roomtothinkpodcast.com &rarr;</span>
+                </div>
+            </a>
+            <a class="pf-card" href="https://app.thefestivalbabes.com" target="_blank" rel="noopener">
+                <div class="pf-img"><img src="portfolio-live-festivalbabes.jpg" alt="The Festival Babes website screenshot" loading="lazy"></div>
+                <div class="pf-info">
+                    <div class="pf-tags"><span>Community App</span><span>UX/UI</span></div>
+                    <h4>The Festival Babes</h4>
+                    <p>A custom web app bringing a festival community online &mdash; campaign discovery, creator perks, and member access.</p>
+                    <span class="pf-link">app.thefestivalbabes.com &rarr;</span>
+                </div>
+            </a>
+        </div>
+        <p class="portfolio-fine reveal">Want the full creative deck &mdash; web, 3D, event, and enterprise work? <a href="ovmg-creative-portfolio.pdf" target="_blank" rel="noopener">View the Portfolio PDF</a></p>
     </div>
 </section>
 
@@ -354,7 +424,7 @@
 </div>
 
 <!-- MISSION -->
-<section id="mission" class="flip-section" style="padding:120px 48px">
+<section id="mission" class="flip-section" style="padding:88px 48px">
     <div class="inner">
         <div class="s-eyebrow reveal">Who We Are</div>
         <h2 class="s-title reveal">Mission, Vision & Portfolio</h2>
@@ -379,7 +449,7 @@
 </section>
 
 <!-- INQUIRY -->
-<section id="contact" class="inquiry-section" style="padding:120px 48px">
+<section id="contact" class="inquiry-section" style="padding:88px 48px">
     <div class="inner">
         <div class="s-eyebrow reveal">Let's Connect</div>
         <h2 class="s-title reveal">Ready to Build Something?</h2>
@@ -400,36 +470,6 @@
                     <button type="submit" class="form-submit">Send Inquiry</button>
                     <p class="form-fine">Confidential. We respond within 24 hours.</p>
                 </form>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- PORTFOLIO -->
-<section id="portfolio">
-    <div class="inner">
-        <div class="s-eyebrow reveal">Our Work</div>
-        <h2 class="s-title reveal">Portfolio</h2>
-        <p class="s-sub reveal">A selection of projects across web, 3D, video, and digital ecosystems.</p>
-        <div class="portfolio-grid">
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-artist-website.jpg" alt="Artist Website Platform"></div><div class="portfolio-info"><h4>Artist Website Platform</h4><p>Web Design &middot; Brand Ecosystem</p></div></div>
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-event-visuals.jpg" alt="Event Visual Production"></div><div class="portfolio-info"><h4>Event Visual Production</h4><p>LED Visuals &middot; Stage Design</p></div></div>
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-3d-visuals.jpg" alt="3D Motion and Visuals"></div><div class="portfolio-info"><h4>3D Motion &amp; Visuals</h4><p>Sacred Geometry &middot; Custom Assets</p></div></div>
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-web-project.jpg" alt="Web Platform Build"></div><div class="portfolio-info"><h4>Web Platform Build</h4><p>Full Ecosystem &middot; Brand + SEO</p></div></div>
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-social-campaign.jpg" alt="Social Campaign"></div><div class="portfolio-info"><h4>Social Campaign</h4><p>Content Strategy &middot; Growth</p></div></div>
-            <div class="portfolio-card reveal"><div class="portfolio-img"><img src="portfolio-enterprise.jpg" alt="Enterprise Media"></div><div class="portfolio-info"><h4>Enterprise Media</h4><p>Data Center &middot; Infrastructure</p></div></div>
-        </div>
-
-        <div class="portfolio-cta reveal">
-            <div class="portfolio-cta-inner">
-                <div class="portfolio-cta-eyebrow">Featured Deck</div>
-                <h3>Explore the Full Creative Portfolio</h3>
-                <p class="portfolio-cta-body">A 10-page overview of our web, visual, event, media, and digital ecosystem work.</p>
-                <div class="portfolio-cta-btns">
-                    <a class="btn-accent" href="OVMG-Creative-Portfolio.pdf" target="_blank" rel="noopener">View Portfolio</a>
-                    <a class="btn-outline" href="OVMG-Creative-Portfolio.pdf" download="OVMG-Creative-Portfolio.pdf">Download PDF</a>
-                </div>
-                <p class="portfolio-cta-fine">Need a custom scope, deck, or media package? <a href="#contact">Contact us for a tailored proposal.</a></p>
             </div>
         </div>
     </div>

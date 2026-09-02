@@ -41,20 +41,20 @@ body{font-family:'Sora',-apple-system,sans-serif;-webkit-font-smoothing:antialia
 .head-r .v{color:var(--dim)}
 
 /* HERO */
-.hero{padding:11px 0 9px;display:grid;grid-template-columns:1fr 268px;gap:30px;align-items:end}
+.hero{padding:13px 0 11px;display:grid;grid-template-columns:1fr 268px;gap:30px;align-items:end}
 .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:500;letter-spacing:3.2px;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
-.hero h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:34px;line-height:1.05;letter-spacing:-0.5px}
+.hero h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:35px;line-height:1.05;letter-spacing:-0.5px}
 .hero h1 em{font-style:italic;color:var(--accent2)}
 .hero p{font-size:9.5px;font-weight:300;line-height:1.65;color:var(--muted);padding-bottom:3px;border-left:1px solid var(--line2);padding-left:14px}
 .hero-rule{position:absolute;right:44px;top:150px;width:150px;text-align:right}
 
 /* PANEL GRID */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .panel{background:#0E1116;
-  border:1px solid var(--line);border-radius:11px;padding:11px 15px 9px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+  border:1px solid var(--line);border-radius:11px;padding:12px 15px 10px;display:flex;flex-direction:column;position:relative;overflow:hidden}
 .panel::before{content:'';position:absolute;top:0;left:16px;right:16px;height:1px;
   background:linear-gradient(90deg,#0E1116,#315491,#0E1116)}
-.panel-head{display:flex;gap:10px;align-items:flex-start;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.panel-head{display:flex;gap:10px;align-items:flex-start;padding-bottom:9px;margin-bottom:5px;border-bottom:1px solid var(--line)}
 .panel-n{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;letter-spacing:1px;color:var(--accent);
   border:1px solid #203354;background:#131B28;border-radius:5px;padding:4px 6px;line-height:1;margin-top:3px}
 .panel h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;line-height:1.15;letter-spacing:-0.2px}
@@ -74,22 +74,19 @@ body{font-family:'Sora',-apple-system,sans-serif;-webkit-font-smoothing:antialia
 .row-p .amt{font-size:13.5px;font-weight:500;color:var(--white);letter-spacing:-0.3px}
 .row-p .per{font-size:9px;font-weight:300;color:var(--dim);margin-left:1px}
 
-.chips{display:flex;flex-wrap:wrap;gap:4px;padding-top:6px;margin-top:6px;border-top:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;padding-top:7px;margin-top:7px;border-top:1px solid var(--line)}
 .chips span{font-family:'IBM Plex Mono',monospace;font-size:6.5px;font-weight:400;letter-spacing:1px;text-transform:uppercase;
   color:var(--dim);border:1px solid var(--line2);border-radius:20px;padding:3px 7px;line-height:1}
 
 /* BANDS */
-.bands{display:grid;grid-template-columns:1.4fr 1fr;gap:11px;margin-top:11px}
-.band{border-radius:11px;padding:10px 15px;position:relative;overflow:hidden}
-.band-e{background:#151312;border:1px solid #372F22}
+.bands{margin-top:14px}
+.band{border-radius:11px;padding:12px 16px;position:relative;overflow:hidden}
 .band-b{background:#0C1320;border:1px solid #1B2E50}
 .band-k{font-family:'IBM Plex Mono',monospace;font-size:7.5px;font-weight:500;letter-spacing:2.4px;text-transform:uppercase;margin-bottom:5px}
-.band-e .band-k{color:var(--warm)}
 .band-b .band-k{color:var(--accent2)}
 .band h3{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;line-height:1.2;margin-bottom:4px}
 .band p{font-size:9px;font-weight:300;line-height:1.6;color:var(--muted)}
 .band p strong{color:var(--off);font-weight:500}
-.band-e .stat{color:var(--warm);font-weight:600}
 
 /* FOOTER */
 .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
@@ -230,11 +227,6 @@ body{font-family:'Sora',-apple-system,sans-serif;-webkit-font-smoothing:antialia
   </div>
 
   <div class="bands">
-    <div class="band band-e">
-      <div class="band-k">Enterprise &amp; Infrastructure</div>
-      <h3>Beyond the agency tier</h3>
-      <p>Marketing, media, and positioning for large-scale infrastructure and technology. We support <strong>Solar ESS</strong> across <span class="stat">122 hyperscale data center sites</span>, including compute offtake positioning and ecosystem storytelling.</p>
-    </div>
     <div class="band band-b">
       <div class="band-k">Bundle &amp; Save 10 to 20%</div>
       <h3>Stack the pillars</h3>

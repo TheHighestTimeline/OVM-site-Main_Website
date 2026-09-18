@@ -236,9 +236,13 @@ def hew(me, smooth_passes, large, small, seed_offset):
 def ring_into(bm):
     """Scale the appended ring to O_DIAMETER and DEPTH, stand it upright facing -Y, add to bm."""
     me = append_ring()
-    radii = [math.hypot(v.co.x, v.co.y) for v in me.vertices]
+    # the source ring is not centred on its origin: recentre on its bounds first
+    xs = [v.co.x for v in me.vertices]
+    ys = [v.co.y for v in me.vertices]
     zs = [v.co.z for v in me.vertices]
-    r_out_src = max(radii)
+    me.transform(Matrix.Translation((-(min(xs) + max(xs)) / 2.0, -(min(ys) + max(ys)) / 2.0, 0.0)))
+    radii = [math.hypot(v.co.x, v.co.y) for v in me.vertices]
+    r_out_src = (max(xs) - min(xs)) / 2.0
     depth_src = max(zs) - min(zs)
     k = (O_DIAMETER / 2.0) / r_out_src
     kz = k * RING_DEPTH_SCALE
@@ -437,8 +441,11 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.013, 0.024, 1.0, 0.0, (-800, -150)),
                           map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
     crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.53, (-800, -420))
+    away_from_edge = map_range(edge, 0.0, 0.6, 1.0, 0.0, (-600, -500))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
+    crack = math_node("MULTIPLY", crack, away_from_edge, (-200, 0))
     lip = math_node("MULTIPLY", math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200)), cracks, (-300, -200))
+    lip = math_node("MULTIPLY", lip, away_from_edge, (-200, -200))
 
     # pitting, small dark holes
     pits = map_range(voronoi(obj, 70.0, "F1", (-1000, -1000)), 0.13, 0.08, 0.0, 1.0, (-800, -1000))
@@ -466,7 +473,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
         return n.outputs["Result"]
 
     col = mix_rgb(col, (0.78, 0.78, 0.78, 1.0), veins, (0, 900))
-    col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.9, (-200, 700)), (200, 900))
+    col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.75, (-200, 700)), (200, 900))
     col = mix_rgb(col, (0.07, 0.065, 0.06, 1.0), pits, (400, 900))
     col = mix_rgb(col, (0.06, 0.055, 0.05, 1.0), math_node("MULTIPLY", cavity, 0.7, (-200, 500)), (600, 900))
     col = mix_rgb(col, (0.52, 0.51, 0.50, 1.0), math_node("MULTIPLY", edge, 0.35, (-200, 350)), (800, 900))
@@ -504,7 +511,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0060, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0080, (-200, -1800)), (200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045 * chips, (-200, -2400)), (800, -1600))

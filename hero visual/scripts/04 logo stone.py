@@ -42,11 +42,11 @@ LETTER_BASELINE = -0.46      # baseline below the O centre, as a fraction of the
 LETTER_GAP = 0.015           # gap between the ring and the n, as a fraction of the O diameter
 LETTER_TRACKING = 0.94
 KERNING = {"V": -0.09, "M": -0.03}   # pull these letters toward the one before them, in em
-VOXEL_LETTERS = 0.0022   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
+VOXEL_LETTERS = 0.0013   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
 EROSION_SMOOTH = 5       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0050      # metres, low frequency lumps baked into the letter geometry
 HEWN_SMALL = 0.0025      # metres, mid frequency lumps
-VOXEL_RING = 0.0007      # remesh size for the ring, fine enough to keep the engraving
+VOXEL_RING = 0.0005      # remesh size for the ring, fine enough to keep the engraving
 BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3
 

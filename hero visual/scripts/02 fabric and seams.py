@@ -25,10 +25,10 @@ from mathutils import Vector
 SCRIPT = "02 fabric and seams"
 
 # ---------------------------------------------------------------- parameters
-FABRIC_BASE = (0.022, 0.021, 0.020)     # linear, not pure black
+FABRIC_BASE = (0.016, 0.0155, 0.015)   # linear, not pure black
 FABRIC_ROUGH_MIN = 0.72
 FABRIC_ROUGH_MAX = 0.86
-SHEEN_WEIGHT = 0.22
+SHEEN_WEIGHT = 0.18
 SHEEN_ROUGHNESS = 0.30
 SHEEN_TINT = (1.0, 0.96, 0.90, 1.0)    # very slightly warm
 WEAVE_PERIOD = 0.0005                   # metres per thread, about 20 threads per cm
@@ -249,7 +249,7 @@ def build_fabric_material():
         normal_img.colorspace_settings.name = "Non-Color"
         nt.links.new(uv.outputs["UV"], ntex.inputs["Vector"])
         nmap = node(nt, "ShaderNodeNormalMap", (-350, -900), uv_map="UVMap")
-        set_input(nmap, "Strength", 0.28)
+        set_input(nmap, "Strength", 0.20)
         nt.links.new(ntex.outputs["Color"], nmap.inputs["Color"])
         nt.links.new(nmap.outputs["Normal"], bump.inputs["Normal"])
     if diffuse_img is not None:
@@ -519,6 +519,16 @@ def build_seam_stitches(hat, col, material):
     placed = 0
     rows = 0
     paths = seam_paths(hat)
+    if paths is not None:
+        # the purchased cap does not mark the seam between the two front panels.
+        # Add it: a straight run up the centre front from the band to near the button.
+        has_front = any(all(abs(p.x) < 0.012 and p.y < -0.05 for p, _ in path) for path in paths if len(path) > 2)
+        if not has_front:
+            front = []
+            for k in range(0, 40):
+                z = SEAM_Z_START + (top_z - SEAM_TOP_STOP - SEAM_Z_START) * k / 39.0
+                front.append((Vector((0.0, -0.30, z)), Vector((0.0, -1.0, 0.0))))
+            paths.append(front)
     if paths is None:
         seam_verts = group_vertices(hat, "seam")
         seams = {}

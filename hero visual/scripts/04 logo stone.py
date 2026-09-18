@@ -43,6 +43,9 @@ LETTER_GAP = 0.015           # gap between the ring and the n, as a fraction of 
 LETTER_TRACKING = 0.94
 KERNING = {"V": -0.09, "M": -0.03}   # pull these letters toward the one before them, in em
 VOXEL_LETTERS = 0.0022   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
+EROSION_SMOOTH = 5       # smoothing passes that round the letter edges into worn boulders
+HEWN_LARGE = 0.0050      # metres, low frequency lumps baked into the letter geometry
+HEWN_SMALL = 0.0025      # metres, mid frequency lumps
 VOXEL_RING = 0.0007      # remesh size for the ring, fine enough to keep the engraving
 BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3
@@ -206,6 +209,25 @@ def remesh(me, voxel):
     return dense
 
 
+def hew(me, smooth_passes, large, small, seed_offset):
+    """Round the edges and push the surface around with noise, so the silhouette is hand cut."""
+    from mathutils import noise
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    if smooth_passes:
+        for _ in range(smooth_passes):
+            bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    bm.normal_update()
+    off = Vector((seed_offset, seed_offset * 0.7, seed_offset * 1.3))
+    for v in bm.verts:
+        p = v.co + off
+        d = large * noise.noise(p * 9.0) + small * noise.noise(p * 34.0)
+        v.co += v.normal * d
+    bm.to_mesh(me)
+    bm.free()
+    return me
+
+
 def ring_into(bm):
     """Scale the appended ring to O_DIAMETER and DEPTH, stand it upright facing -Y, add to bm."""
     me = append_ring()
@@ -223,6 +245,7 @@ def ring_into(bm):
     ys = [v.co.y for v in me.vertices]
     me.transform(Matrix.Translation((0.0, -min(ys), 0.0)))     # front face at y = 0, body toward +y
     me = remesh(me, VOXEL_RING)
+    me = hew(me, 1, HEWN_LARGE * 0.25, HEWN_SMALL * 0.3, 3.0)   # gentle, keep the engraving
     for p in me.polygons:
         p.material_index = 0
         p.use_smooth = True
@@ -283,6 +306,7 @@ def letters_into(bm, r_out):
     xform = place @ flip_depth @ to_upright @ Matrix.Scale(k, 4)
     me.transform(xform)
     me = remesh(me, VOXEL_LETTERS)
+    me = hew(me, EROSION_SMOOTH, HEWN_LARGE, HEWN_SMALL, 11.0)
     for p in me.polygons:
         p.material_index = 0
         p.use_smooth = True
@@ -314,176 +338,148 @@ def build_logo(col):
 
 # --------------------------------------------------------------- material
 def build_stone_material():
+    """Weathered grey stone after the references: warm grey mineral body, white calcite
+    vein network, a few deep cracks with raised lips, pitting, cavity darkening."""
     mat = new_material("MAT.stone")
     nt = mat.node_tree
     nt.nodes.clear()
-    out = node(nt, "ShaderNodeOutputMaterial", (1500, 0))
-    bsdf = node(nt, "ShaderNodeBsdfPrincipled", (1200, 0))
+    out = node(nt, "ShaderNodeOutputMaterial", (2200, 0))
+    bsdf = node(nt, "ShaderNodeBsdfPrincipled", (1900, 0))
     nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     set_input(bsdf, "Metallic", 0.0)
-    set_input(bsdf, "Specular IOR Level", 0.3)
-    set_input(bsdf, "Subsurface Weight", 0.05)
-    set_input(bsdf, "Subsurface Radius", (0.012, 0.010, 0.009))
+    set_input(bsdf, "Specular IOR Level", 0.25)
+    set_input(bsdf, "Subsurface Weight", 0.04)
+    set_input(bsdf, "Subsurface Radius", (0.010, 0.009, 0.008))
     set_input(bsdf, "Subsurface Scale", 0.02)
 
-    coords = node(nt, "ShaderNodeTexCoord", (-1200, 0))
-    geo = node(nt, "ShaderNodeNewGeometry", (-1200, -500))
+    coords = node(nt, "ShaderNodeTexCoord", (-1600, 0))
+    geo = node(nt, "ShaderNodeNewGeometry", (-1600, -600))
 
-    # cavity from pointiness. Around 0.5 is flat, lower is concave, higher is convex.
-    cavity = node(nt, "ShaderNodeMapRange", (-900, -500))
-    set_input(cavity, "From Min", 0.46)
-    set_input(cavity, "From Max", 0.50)
-    set_input(cavity, "To Min", 1.0)
-    set_input(cavity, "To Max", 0.0)
-    cavity.clamp = True
-    nt.links.new(geo.outputs["Pointiness"], cavity.inputs["Value"])
-    edge = node(nt, "ShaderNodeMapRange", (-900, -750))
-    set_input(edge, "From Min", 0.51)
-    set_input(edge, "From Max", 0.56)
-    set_input(edge, "To Min", 0.0)
-    set_input(edge, "To Max", 1.0)
-    edge.clamp = True
-    nt.links.new(geo.outputs["Pointiness"], edge.inputs["Value"])
+    def math_node(op, a, b, loc):
+        n = node(nt, "ShaderNodeMath", loc, operation=op)
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)):
+                set_input(n, i, v)
+            else:
+                nt.links.new(v, n.inputs[i])
+        return n.outputs["Value"]
 
-    # colour: cool grey stone with mottling, darker and dirtier in the recesses
-    mottle = node(nt, "ShaderNodeTexNoise", (-900, 300))
-    set_input(mottle, "Scale", 14.0)
-    set_input(mottle, "Detail", 6.0)
-    set_input(mottle, "Roughness", 0.55)
-    nt.links.new(coords.outputs["Object"], mottle.inputs["Vector"])
-    ramp = node(nt, "ShaderNodeValToRGB", (-650, 300))
-    ramp.color_ramp.elements[0].position = 0.30
-    ramp.color_ramp.elements[0].color = (0.16, 0.165, 0.19, 1.0)
-    ramp.color_ramp.elements[1].position = 0.72
-    ramp.color_ramp.elements[1].color = (0.52, 0.53, 0.56, 1.0)
-    # veins: stretched noise, mixed into the mottle before the ramp
-    vein_map = node(nt, "ShaderNodeMapping", (-1100, 450), vector_type="POINT")
-    set_input(vein_map, "Scale", (1.0, 3.5, 1.0))
-    nt.links.new(coords.outputs["Object"], vein_map.inputs["Vector"])
-    veins = node(nt, "ShaderNodeTexNoise", (-900, 450))
-    set_input(veins, "Scale", 4.0)
-    set_input(veins, "Detail", 8.0)
-    set_input(veins, "Roughness", 0.75)
-    set_input(veins, "Distortion", 1.2)
-    nt.links.new(vein_map.outputs["Vector"], veins.inputs["Vector"])
-    mixed = node(nt, "ShaderNodeMix", (-780, 380), data_type="FLOAT")
-    set_input(mixed, "Factor", 0.45)
-    nt.links.new(mottle.outputs["Fac"], mixed.inputs["A"])
-    nt.links.new(veins.outputs["Fac"], mixed.inputs["B"])
-    nt.links.new(mixed.outputs["Result"], ramp.inputs["Fac"])
-    dirt = node(nt, "ShaderNodeMix", (-300, 300), data_type="RGBA", blend_type="MIX")
-    set_input(dirt, "B", (0.06, 0.055, 0.05, 1.0))
-    nt.links.new(ramp.outputs["Color"], dirt.inputs["A"])
-    cav_amount = node(nt, "ShaderNodeMath", (-500, 100), operation="MULTIPLY")
-    set_input(cav_amount, 1, 0.75)
-    nt.links.new(cavity.outputs["Result"], cav_amount.inputs[0])
-    nt.links.new(cav_amount.outputs["Value"], dirt.inputs["Factor"])
-    # high points a touch lighter
-    lift = node(nt, "ShaderNodeMix", (0, 300), data_type="RGBA", blend_type="MIX")
-    set_input(lift, "B", (0.62, 0.63, 0.65, 1.0))
-    nt.links.new(dirt.outputs["Result"], lift.inputs["A"])
-    edge_amount = node(nt, "ShaderNodeMath", (-500, -100), operation="MULTIPLY")
-    set_input(edge_amount, 1, 0.35)
-    nt.links.new(edge.outputs["Result"], edge_amount.inputs[0])
-    nt.links.new(edge_amount.outputs["Value"], lift.inputs["Factor"])
-    # crackle, thin dark lines like the reference stone, from the edges of voronoi cells
-    crack_cells = node(nt, "ShaderNodeTexVoronoi", (-900, 700), feature="DISTANCE_TO_EDGE")
-    set_input(crack_cells, "Scale", 22.0)
-    set_input(crack_cells, "Randomness", 1.0)
-    nt.links.new(coords.outputs["Object"], crack_cells.inputs["Vector"])
-    crack_mask = node(nt, "ShaderNodeMapRange", (-650, 700))
-    set_input(crack_mask, "From Min", 0.006)
-    set_input(crack_mask, "From Max", 0.0)
-    set_input(crack_mask, "To Min", 0.0)
-    set_input(crack_mask, "To Max", 1.0)
-    crack_mask.clamp = True
-    nt.links.new(crack_cells.outputs["Distance"], crack_mask.inputs["Value"])
-    # only some cell edges crack, gated by a second noise
-    crack_gate = node(nt, "ShaderNodeTexNoise", (-900, 950))
-    set_input(crack_gate, "Scale", 6.0)
-    nt.links.new(coords.outputs["Object"], crack_gate.inputs["Vector"])
-    gate = node(nt, "ShaderNodeMath", (-650, 950), operation="GREATER_THAN")
-    set_input(gate, 1, 0.40)
-    nt.links.new(crack_gate.outputs["Fac"], gate.inputs[0])
-    crack = node(nt, "ShaderNodeMath", (-400, 800), operation="MULTIPLY")
-    nt.links.new(crack_mask.outputs["Result"], crack.inputs[0])
-    nt.links.new(gate.outputs["Value"], crack.inputs[1])
-    cracked = node(nt, "ShaderNodeMix", (250, 400), data_type="RGBA", blend_type="MIX")
-    set_input(cracked, "B", (0.04, 0.038, 0.036, 1.0))
-    nt.links.new(lift.outputs["Result"], cracked.inputs["A"])
-    crack_amt = node(nt, "ShaderNodeMath", (0, 800), operation="MULTIPLY")
-    set_input(crack_amt, 1, 0.85)
-    nt.links.new(crack.outputs["Value"], crack_amt.inputs[0])
-    nt.links.new(crack_amt.outputs["Value"], cracked.inputs["Factor"])
-    nt.links.new(cracked.outputs["Result"], bsdf.inputs["Base Color"])
+    def map_range(value, a, b, c, d, loc):
+        n = node(nt, "ShaderNodeMapRange", loc)
+        n.clamp = True
+        set_input(n, "From Min", a)
+        set_input(n, "From Max", b)
+        set_input(n, "To Min", c)
+        set_input(n, "To Max", d)
+        nt.links.new(value, n.inputs["Value"])
+        return n.outputs["Result"]
 
-    # roughness inverse to cavity: recesses rough, high points slightly polished
-    rough = node(nt, "ShaderNodeMapRange", (300, 100))
-    set_input(rough, "From Min", 0.0)
-    set_input(rough, "From Max", 1.0)
-    set_input(rough, "To Min", 0.62)
-    set_input(rough, "To Max", 0.92)
-    nt.links.new(cavity.outputs["Result"], rough.inputs["Value"])
-    polish = node(nt, "ShaderNodeMath", (600, 100), operation="SUBTRACT")
-    nt.links.new(rough.outputs["Result"], polish.inputs[0])
-    polish_amt = node(nt, "ShaderNodeMath", (300, -100), operation="MULTIPLY")
-    set_input(polish_amt, 1, 0.18)
-    nt.links.new(edge.outputs["Result"], polish_amt.inputs[0])
-    nt.links.new(polish_amt.outputs["Value"], polish.inputs[1])
-    nt.links.new(polish.outputs["Value"], bsdf.inputs["Roughness"])
+    def noise_tex(vec, scale, detail, rough, loc, distortion=0.0):
+        n = node(nt, "ShaderNodeTexNoise", loc)
+        set_input(n, "Scale", scale)
+        set_input(n, "Detail", detail)
+        set_input(n, "Roughness", rough)
+        set_input(n, "Distortion", distortion)
+        nt.links.new(vec, n.inputs["Vector"])
+        return n.outputs["Fac"]
 
-    # displacement at two scales, plus chipping along the bevel edges
-    broad = node(nt, "ShaderNodeTexNoise", (-900, -1000))
-    set_input(broad, "Scale", 7.0)
-    set_input(broad, "Detail", 3.0)
-    nt.links.new(coords.outputs["Object"], broad.inputs["Vector"])
-    grain = node(nt, "ShaderNodeTexNoise", (-900, -1250))
-    set_input(grain, "Scale", 220.0)
-    set_input(grain, "Detail", 2.0)
-    nt.links.new(coords.outputs["Object"], grain.inputs["Vector"])
-    broad_c = node(nt, "ShaderNodeMath", (-600, -1000), operation="SUBTRACT")
-    set_input(broad_c, 1, 0.5)
-    nt.links.new(broad.outputs["Fac"], broad_c.inputs[0])
-    broad_s = node(nt, "ShaderNodeMath", (-400, -1000), operation="MULTIPLY")
-    set_input(broad_s, 1, 0.0045)
-    nt.links.new(broad_c.outputs["Value"], broad_s.inputs[0])
-    grain_c = node(nt, "ShaderNodeMath", (-600, -1250), operation="SUBTRACT")
-    set_input(grain_c, 1, 0.5)
-    nt.links.new(grain.outputs["Fac"], grain_c.inputs[0])
-    grain_s = node(nt, "ShaderNodeMath", (-400, -1250), operation="MULTIPLY")
-    set_input(grain_s, 1, 0.0012)
-    nt.links.new(grain_c.outputs["Value"], grain_s.inputs[0])
-    # chips: cells of a voronoi, only where the surface is convex, only some cells
-    chip_cells = node(nt, "ShaderNodeTexVoronoi", (-900, -1500), feature="F1")
-    set_input(chip_cells, "Scale", 90.0)
-    set_input(chip_cells, "Randomness", 1.0)
-    nt.links.new(coords.outputs["Object"], chip_cells.inputs["Vector"])
-    chip_pick = node(nt, "ShaderNodeMath", (-600, -1500), operation="GREATER_THAN")
-    set_input(chip_pick, 1, 0.72)                        # about a quarter of cells chip
-    nt.links.new(chip_cells.outputs["Distance"], chip_pick.inputs[0])
-    chip_edge = node(nt, "ShaderNodeMath", (-400, -1500), operation="MULTIPLY")
-    nt.links.new(chip_pick.outputs["Value"], chip_edge.inputs[0])
-    nt.links.new(edge.outputs["Result"], chip_edge.inputs[1])
-    chip_s = node(nt, "ShaderNodeMath", (-200, -1500), operation="MULTIPLY")
-    set_input(chip_s, 1, -0.0060)
-    nt.links.new(chip_edge.outputs["Value"], chip_s.inputs[0])
-    sum1 = node(nt, "ShaderNodeMath", (0, -1100), operation="ADD")
-    nt.links.new(broad_s.outputs["Value"], sum1.inputs[0])
-    nt.links.new(grain_s.outputs["Value"], sum1.inputs[1])
-    sum2 = node(nt, "ShaderNodeMath", (200, -1100), operation="ADD")
-    nt.links.new(sum1.outputs["Value"], sum2.inputs[0])
-    nt.links.new(chip_s.outputs["Value"], sum2.inputs[1])
-    # cracks cut into the surface a little
-    crack_disp = node(nt, "ShaderNodeMath", (200, -1350), operation="MULTIPLY")
-    set_input(crack_disp, 1, -0.0035)
-    nt.links.new(crack.outputs["Value"], crack_disp.inputs[0])
-    sum3 = node(nt, "ShaderNodeMath", (400, -1100), operation="ADD")
-    nt.links.new(sum2.outputs["Value"], sum3.inputs[0])
-    nt.links.new(crack_disp.outputs["Value"], sum3.inputs[1])
-    disp = node(nt, "ShaderNodeDisplacement", (900, -700))
+    def voronoi(vec, scale, feature, loc):
+        n = node(nt, "ShaderNodeTexVoronoi", loc, feature=feature)
+        set_input(n, "Scale", scale)
+        set_input(n, "Randomness", 1.0)
+        nt.links.new(vec, n.inputs["Vector"])
+        return n.outputs["Distance"]
+
+    obj = coords.outputs["Object"]
+
+    # a wobbled copy of the coordinates so vein and crack lines meander instead of running straight
+    wobble = node(nt, "ShaderNodeTexNoise", (-1400, 300))
+    set_input(wobble, "Scale", 12.0)
+    set_input(wobble, "Detail", 3.0)
+    nt.links.new(obj, wobble.inputs["Vector"])
+    wob_scale = node(nt, "ShaderNodeVectorMath", (-1200, 300), operation="MULTIPLY_ADD")
+    wob_scale.inputs[1].default_value = (0.05, 0.05, 0.05)
+    nt.links.new(wobble.outputs["Color"], wob_scale.inputs[0])
+    nt.links.new(obj, wob_scale.inputs[2])
+    wobbled = wob_scale.outputs["Vector"]
+
+    # cavity and edge from pointiness (the mesh is dense, so both are tight around 0.5)
+    cavity = map_range(geo.outputs["Pointiness"], 0.47, 0.50, 1.0, 0.0, (-1300, -600))
+    edge = map_range(geo.outputs["Pointiness"], 0.51, 0.55, 0.0, 1.0, (-1300, -800))
+
+    # vein network, two scales, white calcite, gated so it is patchy like the reference
+    vein_a = map_range(voronoi(wobbled, 9.0, "DISTANCE_TO_EDGE", (-1000, 600)), 0.0075, 0.0, 0.0, 1.0, (-800, 600))
+    vein_b = map_range(voronoi(wobbled, 30.0, "DISTANCE_TO_EDGE", (-1000, 400)), 0.0036, 0.0, 0.0, 1.0, (-800, 400))
+    gate_a = math_node("GREATER_THAN", noise_tex(obj, 3.0, 2.0, 0.5, (-1000, 800)), 0.30, (-800, 800))
+    gate_b = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, 200), 0.0), 0.42, (-800, 200))
+    veins = math_node("MAXIMUM", math_node("MULTIPLY", vein_a, gate_a, (-600, 700)),
+                      math_node("MULTIPLY", vein_b, gate_b, (-600, 300)), (-400, 500))
+
+    # deep cracks with raised lips, sparse
+    crack_d = voronoi(wobbled, 3.2, "DISTANCE_TO_EDGE", (-1000, 0))
+    crack_core = map_range(crack_d, 0.006, 0.0, 0.0, 1.0, (-800, 0))
+    crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.006, 0.014, 1.0, 0.0, (-800, -150)),
+                          map_range(crack_d, 0.0, 0.006, 0.0, 1.0, (-800, -300)), (-600, -200))
+    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.56, (-800, -420))
+    crack = math_node("MULTIPLY", crack_core, crack_gate, (-400, 0))
+    lip = math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200))
+
+    # pitting, small dark holes
+    pits = map_range(voronoi(obj, 70.0, "F1", (-1000, -1000)), 0.13, 0.08, 0.0, 1.0, (-800, -1000))
+    pit_gate = math_node("GREATER_THAN", noise_tex(obj, 5.0, 2.0, 0.5, (-1000, -1200)), 0.45, (-800, -1200))
+    pits = math_node("MULTIPLY", pits, pit_gate, (-600, -1000))
+
+    # colour: warm grey mineral body with mottling
+    body_fac = noise_tex(obj, 5.0, 7.0, 0.6, (-1000, 1100))
+    ramp = node(nt, "ShaderNodeValToRGB", (-800, 1100))
+    ramp.color_ramp.elements[0].position = 0.32
+    ramp.color_ramp.elements[0].color = (0.11, 0.098, 0.088, 1.0)
+    ramp.color_ramp.elements[1].position = 0.70
+    ramp.color_ramp.elements[1].color = (0.34, 0.325, 0.305, 1.0)
+    nt.links.new(body_fac, ramp.inputs["Fac"])
+    col = ramp.outputs["Color"]
+
+    def mix_rgb(a, b_col, fac, loc):
+        n = node(nt, "ShaderNodeMix", loc, data_type="RGBA", blend_type="MIX")
+        nt.links.new(a, n.inputs["A"])
+        if isinstance(b_col, tuple):
+            set_input(n, "B", b_col)
+        else:
+            nt.links.new(b_col, n.inputs["B"])
+        nt.links.new(fac, n.inputs["Factor"])
+        return n.outputs["Result"]
+
+    col = mix_rgb(col, (0.80, 0.78, 0.74, 1.0), veins, (0, 900))
+    col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.9, (-200, 700)), (200, 900))
+    col = mix_rgb(col, (0.07, 0.065, 0.06, 1.0), pits, (400, 900))
+    col = mix_rgb(col, (0.06, 0.055, 0.05, 1.0), math_node("MULTIPLY", cavity, 0.7, (-200, 500)), (600, 900))
+    col = mix_rgb(col, (0.52, 0.51, 0.50, 1.0), math_node("MULTIPLY", edge, 0.35, (-200, 350)), (800, 900))
+    nt.links.new(col, bsdf.inputs["Base Color"])
+
+    # roughness: matte body, recesses rougher, edges and veins a touch smoother
+    rough = map_range(cavity, 0.0, 1.0, 0.74, 0.92, (1000, 300))
+    rough = math_node("SUBTRACT", rough, math_node("MULTIPLY", edge, 0.12, (1000, 150)), (1200, 300))
+    rough = math_node("SUBTRACT", rough, math_node("MULTIPLY", veins, 0.15, (1000, 0)), (1400, 300))
+    rough = math_node("ADD", rough, math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 120.0, 2.0, 0.5, (1000, -200)), 0.5, (1200, -200)), 0.2, (1400, -200)), (1600, 300))
+    nt.links.new(rough, bsdf.inputs["Roughness"])
+
+    # displacement: facets and lumps, grain, veins slightly proud, cracks cut with lips, pits sunk
+    facets = math_node("MULTIPLY", math_node("SUBTRACT", voronoi(obj, 11.0, "F1", (-1000, -1500)), 0.35, (-800, -1500)), 0.0055, (-600, -1500))
+    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0040, (-600, -1700))
+    grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0016, (-600, -1900))
+    grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0022, (-600, -2050))
+    grain = math_node("ADD", grain, grain2, (-500, -1950))
+    total = math_node("ADD", facets, broad, (-400, -1600))
+    total = math_node("ADD", total, grain, (-200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0070, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045, (-200, -2400)), (800, -1600))
+    disp = node(nt, "ShaderNodeDisplacement", (1600, -700))
     set_input(disp, "Midlevel", 0.0)
     set_input(disp, "Scale", 1.0)
-    nt.links.new(sum3.outputs["Value"], disp.inputs["Height"])
+    nt.links.new(total, disp.inputs["Height"])
     nt.links.new(disp.outputs["Displacement"], out.inputs["Displacement"])
     mat.displacement_method = "BOTH"    # the mesh is voxel dense, real displacement works
     return mat
@@ -525,7 +521,7 @@ def render_set(scene, cam, logo, key):
             saved_lights[name] = (l.location.copy(), l.rotation_euler.copy(), l.data.energy)
     key.location = target + Vector((-1.2, -1.4, 1.3))
     look_at(key, target)
-    key.data.energy = 140.0
+    key.data.energy = 95.0
     fill = bpy.data.objects.get("LIGHT.fill")
     rim = bpy.data.objects.get("LIGHT.rim")
     if fill:
@@ -540,7 +536,7 @@ def render_set(scene, cam, logo, key):
     # raking light across the face
     key.location = target + Vector((-width * 1.3, -0.35, 0.25))
     look_at(key, target)
-    key.data.energy = 110.0
+    key.data.energy = 80.0
     if fill:
         fill.data.energy = 8.0
     results["raking"] = render_preview(scene, "04 logo raking light")
@@ -592,7 +588,7 @@ def main():
     print(f"  ring source: {RING_FILE} / {RING_OBJECT}")
     print(f"  letters '{LETTERS}' width {letters_width:.4f} m, font {font_path}")
     print(f"  stone depth {DEPTH:.3f} m, whole mark {dims.x:.3f} x {dims.z:.3f} m, location {tuple(round(c, 3) for c in logo.location)}")
-    print(f"  stone cast: cool, blue grey. Base colour range (linear) 0.16 to 0.56")
+    print(f"  stone cast: warm grey mineral body (linear 0.16 to 0.40) with white calcite veins")
     for k, (path, dt) in results.items():
         print(f"  render {k}: {dt:.1f} s -> {path}")
     print("=================================")

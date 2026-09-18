@@ -610,9 +610,12 @@ def main():
     ring_mat = build_stone_material("MAT.stone ring", cracks=0.0, veins_amt=0.0, pits_amt=0.0, chips=0.0, grain_amt=0.06, ao=0.9,
                                     body_dark=(0.12, 0.125, 0.14), body_light=(0.30, 0.31, 0.33), rough_min=0.26, rough_max=0.55,
                                     coat=0.35, specular=0.5, ao_distance=0.03, relief=0.0)
-    logo.data.materials.clear()
-    logo.data.materials.append(mat)
-    logo.data.materials.append(ring_mat)
+    # never clear() here: clearing material slots zeroes every face's material index
+    for i, m in enumerate((mat, ring_mat)):
+        if len(logo.data.materials) > i:
+            logo.data.materials[i] = m
+        else:
+            logo.data.materials.append(m)
     build_time = time.time() - t0
     diameter, stroke = measure(logo)
 

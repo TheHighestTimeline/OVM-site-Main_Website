@@ -39,10 +39,10 @@ LETTERS = "neVibeMedia"
 LETTER_CAP_HEIGHT = 0.61     # capital height as a fraction of the O diameter, measured from the reference
 SMALL_CAPS_SCALE = 0.70      # small capitals as a fraction of the capitals, measured from the reference
 LETTER_BASELINE = -0.46      # baseline below the O centre, as a fraction of the O diameter
-LETTER_GAP = 0.015           # gap between the ring and the n, as a fraction of the O diameter
-LETTER_TRACKING = 0.94
-KERNING = {"V": -0.09, "M": -0.03}   # pull these letters toward the one before them, in em
-VOXEL_LETTERS = 0.0013   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
+LETTER_GAP = -0.01           # the n tucks just under the ring's edge, one word
+LETTER_TRACKING = 0.86
+KERNING = {"V": -0.11, "M": -0.05, "i": -0.02, "b": -0.02}   # pull these letters toward the one before them, in em
+VOXEL_LETTERS = 0.0009   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
 EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
 HEWN_SMALL = 0.0         # metres, mid frequency lumps
@@ -249,9 +249,9 @@ def ring_into(bm):
     ys = [v.co.y for v in me.vertices]
     me.transform(Matrix.Translation((0.0, -min(ys), 0.0)))     # front face at y = 0, body toward +y
     me = remesh(me, VOXEL_RING)
-    me = hew(me, 1, HEWN_LARGE * 0.25, HEWN_SMALL * 0.3, 3.0)   # gentle, keep the engraving
+    me = hew(me, 0, 0.0, 0.0, 3.0)   # never eroded, the engraving stays exact
     for p in me.polygons:
-        p.material_index = 0
+        p.material_index = 1          # MAT.stone ring, the cleaner chiselled variant
         p.use_smooth = True
     bm.from_mesh(me)
     r_in_src = min(radii)
@@ -341,10 +341,13 @@ def build_logo(col):
 
 
 # --------------------------------------------------------------- material
-def build_stone_material():
-    """Weathered grey stone after the references: warm grey mineral body, white calcite
-    vein network, a few deep cracks with raised lips, pitting, cavity darkening."""
-    mat = new_material("MAT.stone")
+def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=1.0, grain_amt=1.0, ao=0.0):
+    """Weathered grey stone after the references: grey mineral body, white calcite vein
+    network, a few deep cracks with raised lips, pitting, cavity darkening.
+
+    The multipliers scale each feature so the ring can be a cleaner, chiselled variant.
+    ao adds ambient occlusion darkening in the grooves, which sells carved depth."""
+    mat = new_material(name)
     nt = mat.node_tree
     nt.nodes.clear()
     out = node(nt, "ShaderNodeOutputMaterial", (2200, 0))
@@ -418,6 +421,7 @@ def build_stone_material():
     gate_b = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, 200), 0.0), 0.42, (-800, 200))
     veins = math_node("MAXIMUM", math_node("MULTIPLY", vein_a, gate_a, (-600, 700)),
                       math_node("MULTIPLY", vein_b, gate_b, (-600, 300)), (-400, 500))
+    veins = math_node("MULTIPLY", veins, veins_amt, (-300, 500))
 
     # deep cracks with raised lips, sparse
     crack_d = voronoi(wobbled, 3.2, "DISTANCE_TO_EDGE", (-1000, 0))
@@ -425,13 +429,13 @@ def build_stone_material():
     crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.006, 0.014, 1.0, 0.0, (-800, -150)),
                           map_range(crack_d, 0.0, 0.006, 0.0, 1.0, (-800, -300)), (-600, -200))
     crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.56, (-800, -420))
-    crack = math_node("MULTIPLY", crack_core, crack_gate, (-400, 0))
-    lip = math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200))
+    crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
+    lip = math_node("MULTIPLY", math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200)), cracks, (-300, -200))
 
     # pitting, small dark holes
     pits = map_range(voronoi(obj, 70.0, "F1", (-1000, -1000)), 0.13, 0.08, 0.0, 1.0, (-800, -1000))
     pit_gate = math_node("GREATER_THAN", noise_tex(obj, 5.0, 2.0, 0.5, (-1000, -1200)), 0.45, (-800, -1200))
-    pits = math_node("MULTIPLY", pits, pit_gate, (-600, -1000))
+    pits = math_node("MULTIPLY", math_node("MULTIPLY", pits, pit_gate, (-600, -1000)), pits_amt, (-500, -1000))
 
     # colour: warm grey mineral body with mottling
     body_fac = noise_tex(obj, 5.0, 7.0, 0.6, (-1000, 1100))
@@ -458,6 +462,20 @@ def build_stone_material():
     col = mix_rgb(col, (0.07, 0.065, 0.06, 1.0), pits, (400, 900))
     col = mix_rgb(col, (0.06, 0.055, 0.05, 1.0), math_node("MULTIPLY", cavity, 0.7, (-200, 500)), (600, 900))
     col = mix_rgb(col, (0.52, 0.51, 0.50, 1.0), math_node("MULTIPLY", edge, 0.35, (-200, 350)), (800, 900))
+    if ao > 0.0:
+        ao_node = node(nt, "ShaderNodeAmbientOcclusion", (800, 1200))
+        ao_node.samples = 8
+        ao_node.only_local = True
+        set_input(ao_node, "Distance", 0.02)
+        ao_fac = map_range(ao_node.outputs["AO"], 0.0, 1.0, 1.0 - ao, 1.0, (1000, 1200))
+        ao_mix = node(nt, "ShaderNodeMix", (1200, 1000), data_type="RGBA", blend_type="MULTIPLY")
+        set_input(ao_mix, "Factor", 1.0)
+        nt.links.new(col, ao_mix.inputs["A"])
+        ao_rgb = node(nt, "ShaderNodeCombineColor", (1100, 1100))
+        for i in range(3):
+            nt.links.new(ao_fac, ao_rgb.inputs[i])
+        nt.links.new(ao_rgb.outputs["Color"], ao_mix.inputs["B"])
+        col = ao_mix.outputs["Result"]
     nt.links.new(col, bsdf.inputs["Base Color"])
 
     # roughness: matte body, recesses rougher, edges and veins a touch smoother
@@ -473,13 +491,15 @@ def build_stone_material():
     grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0016, (-600, -1900))
     grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0022, (-600, -2050))
     grain = math_node("ADD", grain, grain2, (-500, -1950))
+    grain = math_node("MULTIPLY", grain, grain_amt, (-400, -1950))
+    grain = math_node("MULTIPLY", grain, map_range(edge, 0.0, 1.0, 1.0, 0.15, (-500, -2100)), (-300, -1950))
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0070, (-200, -1800)), (200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045, (-200, -2400)), (800, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045 * chips, (-200, -2400)), (800, -1600))
     disp = node(nt, "ShaderNodeDisplacement", (1600, -700))
     set_input(disp, "Midlevel", 0.0)
     set_input(disp, "Scale", 1.0)
@@ -550,6 +570,15 @@ def render_set(scene, cam, logo, key):
     look_at(cam, crop_target)
     cam.data.dof.focus_distance = (crop_target - cam.location).length
     results["detail"] = render_preview(scene, "04 logo detail crop")
+    # the O straight on, close, lit from upper left so the chisel work shows
+    o_centre = Vector((lo + O_DIAMETER / 2.0, centre.y, centre.z))
+    cam.location = o_centre + Vector((0.0, -O_DIAMETER * 3.2, 0.0))
+    look_at(cam, o_centre)
+    cam.data.dof.focus_distance = (o_centre - cam.location).length
+    key.location = o_centre + Vector((-0.5, -0.5, 0.6))
+    look_at(key, o_centre)
+    key.data.energy = 60.0
+    results["O chisel"] = render_preview(scene, "04 logo O chisel")
     for name, (loc, rot, e) in saved_lights.items():
         l = bpy.data.objects[name]
         l.location, l.rotation_euler, l.data.energy = loc, rot, e
@@ -568,9 +597,11 @@ def main():
     col = collection("Logo")
     t0 = time.time()
     logo, radii, letters_width, font_path = build_logo(col)
-    mat = build_stone_material()
+    mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=0.15, grain_amt=1.0, ao=0.25)
+    ring_mat = build_stone_material("MAT.stone ring", cracks=0.2, veins_amt=0.35, pits_amt=0.25, chips=0.0, grain_amt=0.5, ao=0.7)
     logo.data.materials.clear()
     logo.data.materials.append(mat)
+    logo.data.materials.append(ring_mat)
     build_time = time.time() - t0
     diameter, stroke = measure(logo)
 

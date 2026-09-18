@@ -24,20 +24,20 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -0.95
+STACK_X = -0.80
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.104          # floating, with air between the hats
 STACK_YAW_STEP = 2.5           # degrees, each hat turned a little further than the one below
 STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
 STACK_XY_JITTER = 0.006        # metres
-LOGO_LOCATION = Vector((-0.42, -0.35, 0.30))  # centre of the O, nearer the camera than the hats
-FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
+LOGO_LOCATION = Vector((-0.55, -0.35, 0.76))  # centre of the O, above and right of the stack, nearer the camera
+FRAME_MARGIN = 1.10            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))
 CAMERA_TARGET = Vector((-0.15, -0.10, 0.25))
 CAMERA_FSTOP = 5.6
-FULL_WIDTH = 1400
-FULL_HEIGHT = 800
+FULL_WIDTH = 1600
+FULL_HEIGHT = 900
 FULL_SAMPLES = 512
 SKIP_RENDERS = os.environ.get("HATHERO_SKIP_RENDERS") == "1"
 FULL_RENDER = os.environ.get("HATHERO_SKIP_FULL_RENDER") != "1"
@@ -193,6 +193,9 @@ def set_camera(cam, hats, logo):
     """Frame stack and logo together at 85 mm, keeping the handbook's camera height and angle."""
     lo, hi = world_bbox(hats + [logo])
     width = (hi.x - lo.x) * FRAME_MARGIN
+    height = (hi.z - lo.z) * FRAME_MARGIN
+    aspect = FULL_WIDTH / FULL_HEIGHT
+    width = max(width, height * aspect)
     centre_x = (lo.x + hi.x) / 2.0
     near_y = lo.y
     distance = width * 85.0 / cam.data.sensor_width

@@ -8,11 +8,14 @@ point rig (LIGHT.key, LIGHT.fill, LIGHT.rim). No stitching, no lettering.
 
 Idempotent. Removes and rebuilds every object it owns by name.
 
-Path decision: no downloaded cap is used. The build is fully procedural so
-the topology is guaranteed quads, the six panel seams are guaranteed edge
-loops (they are generated as such and tagged in the vertex group "seam"),
-the front two panels are tagged in the vertex group "front panels", and
-there is no licence question on a commercial hero.
+Path decision: the purchased Free3D baseball cap (royalty free, all
+extended uses) in reference/cap/baseball_cap.blend is the cap. It is all
+quads, has the panel seams marked as UV seams, a closed brim, eyelet holes,
+a covered button, and a 2048 twill diffuse plus normal map. This script
+appends it, bakes its object scale into the mesh, and tags the vertex
+groups the later scripts need: "seam" (marked seam edges on the crown),
+"front panels", "brim", "brim edge". The procedural cap is kept below as a
+fallback and only runs if the purchased file is missing.
 
 Runs inside Blender (Text Editor, Run Script) or through the bpy module.
 """
@@ -21,7 +24,7 @@ import bmesh
 import math
 import os
 import time
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 SCRIPT = "01 hat model"
 
@@ -64,6 +67,10 @@ PROFILE = [
 ]
 ANGLES = [math.radians(60.0 * p + o) for p in range(PANELS) for o in PANEL_OFFSETS]
 SEGMENTS = len(ANGLES)
+
+CAP_FILE = os.path.join("reference", "cap", "baseball_cap.blend")
+CAP_OBJECT = "baseball_cap"
+CAP_TARGET_WIDTH = 0.28      # side to side across the crown, metres, per handbook
 
 CAMERA_LENS = 85.0
 PREVIEW_WIDTH = 800
@@ -367,6 +374,115 @@ def build_hat_bmesh():
     return bm, groups
 
 
+def import_purchased_cap(col):
+    """Append the bought cap, bake its scale, tag vertex groups. Returns the object or None."""
+    path = os.path.join(WORK, CAP_FILE)
+    if not os.path.exists(path):
+        print(f"  purchased cap not found at {path}, falling back to the procedural cap")
+        return None
+    remove_object("HAT.base")
+    for name in ("HAT.base",):
+        old = bpy.data.meshes.get(name)
+        if old is not None and old.users == 0:
+            bpy.data.meshes.remove(old)
+    with bpy.data.libraries.load(path, link=False) as (src, dst):
+        if CAP_OBJECT not in src.objects:
+            raise RuntimeError(f"{SCRIPT}: {CAP_FILE} has no object {CAP_OBJECT}. It has {list(src.objects)}")
+        dst.objects = [CAP_OBJECT]
+    ob = dst.objects[0]
+    me = ob.data
+    ob.name = "HAT.base"
+    me.name = "HAT.base"
+    link(ob, col)
+
+    # bake the object scale into the mesh, then rescale to the handbook width
+    scale = ob.scale.x
+    me.transform(Matrix.Scale(scale, 4))
+    xs = [v.co.x for v in me.vertices]
+    ys = [v.co.y for v in me.vertices]
+    zs = [v.co.z for v in me.vertices]
+    # crown width: widest span among vertices behind the brim (y > -0.12 of the total depth)
+    depth = max(ys) - min(ys)
+    crown = [v for v in me.vertices if v.co.y > min(ys) + depth * 0.40]
+    width_now = max(v.co.x for v in crown) - min(v.co.x for v in crown)
+    k = CAP_TARGET_WIDTH / width_now
+    me.transform(Matrix.Scale(k, 4))
+    zs = [v.co.z for v in me.vertices]
+    ys = [v.co.y for v in me.vertices]
+    # the crown opening sits at z = 0: lowest crown vertex (not the brim) to zero
+    crown = [v for v in me.vertices if math.hypot(v.co.x, v.co.y) < CAP_TARGET_WIDTH * 0.56]
+    z0 = min(v.co.z for v in crown)
+    me.transform(Matrix.Translation((0.0, 0.0, -z0)))
+    ob.scale = (1.0, 1.0, 1.0)
+    ob.location = (0.0, 0.0, 0.0)
+    ob.rotation_euler = (0.0, 0.0, 0.0)
+    total = scale * k
+
+    # modifiers: the displace wrinkle is in local units, follow the scale
+    for m in ob.modifiers:
+        if m.type == "DISPLACE":
+            m.strength *= total
+            if m.texture is not None and hasattr(m.texture, "noise_scale"):
+                m.texture.noise_scale *= total
+            m.name = "Fabric wrinkle"
+        elif m.type == "SUBSURF":
+            m.name = "Smooth"
+            m.levels = 2
+            m.render_levels = 3
+    me.shade_smooth()
+
+    # vertex groups the later scripts rely on
+    for vg in list(ob.vertex_groups):
+        if vg.name != "Group":
+            ob.vertex_groups.remove(vg)
+    R = CAP_TARGET_WIDTH / 2.0
+    hd = {v.index: math.hypot(v.co.x, v.co.y) for v in me.vertices}
+    seam_verts = set()
+    for e in me.edges:
+        if e.use_seam:
+            a, b = e.vertices
+            # crown seams only: both ends inside the crown footprint
+            if hd[a] < R * 1.08 and hd[b] < R * 1.08:
+                seam_verts.update((a, b))
+    front = [v.index for v in me.vertices
+             if hd[v.index] < R * 1.08 and v.co.y < 0.0 and abs(math.degrees(math.atan2(v.co.x, -v.co.y))) < 60.0
+             and 0.25 * (max(zs) - 0.0) < v.co.z < 0.90 * max(zs)]
+    brim = [v.index for v in me.vertices if hd[v.index] > R * 1.06 and v.co.y < 0.0]
+    # brim edge: the model marks a seam around the brim outline. Take the seam
+    # edges that lie outside the crown footprint, upper surface only.
+    # Both ends outside the crown footprint and in front of the crown centre.
+    # 02 walks these seam edges into an ordered outline, so no sorting here.
+    brim_edge = set()
+    for e in me.edges:
+        if not e.use_seam:
+            continue
+        a, b = e.vertices
+        if (hd[a] > R * 1.02 and hd[b] > R * 1.02
+                and me.vertices[a].co.y < -0.04 and me.vertices[b].co.y < -0.04):
+            brim_edge.update((a, b))
+    brim_edge = sorted(brim_edge)
+    groups = {"seam": sorted(seam_verts), "front panels": front, "brim": brim, "brim edge": brim_edge}
+    for name, ids in groups.items():
+        vg = ob.vertex_groups.new(name=name)
+        if ids:
+            vg.add(ids, 1.0, "REPLACE")
+
+    # placeholder material, 02 replaces it. Keep the cap's textures around for 02.
+    mat = bpy.data.materials.get("MAT.placeholder grey")
+    if mat is None:
+        mat = bpy.data.materials.new("MAT.placeholder grey")
+        if mat.node_tree is None:
+            mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        bsdf.inputs["Base Color"].default_value = (0.35, 0.35, 0.35, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.6
+    me.materials.clear()
+    me.materials.append(mat)
+    print(f"  purchased cap appended from {CAP_FILE}: {len(me.vertices)} verts, scale baked {total:.4f}, "
+          f"crown width now {CAP_TARGET_WIDTH:.3f} m, seam verts {len(seam_verts)}, brim edge samples {len(brim_edge)}")
+    return ob
+
+
 def build_hat_base(col):
     remove_object("HAT.base")
     old = bpy.data.meshes.get("HAT.base")
@@ -432,8 +548,8 @@ def build_camera(col):
     cam = bpy.data.objects.new("CAM.hero", cam_data)
     link(cam, col)
     # look dev framing for a single hat: three quarter view, a little above
-    cam.location = Vector((0.78, -1.30, 0.42))
-    target = Vector((0.0, -0.04, 0.055))
+    cam.location = Vector((0.82, -1.38, 0.52))
+    target = Vector((0.0, -0.05, 0.11))
     look_at(cam, target)
     cam_data.dof.focus_distance = (target - cam.location).length
     bpy.context.scene.camera = cam
@@ -502,7 +618,7 @@ def report(scene, hat, cam, device, render_path, render_time):
     print(f"  Blender {bpy.app.version_string}, render device {device}")
     print(f"  scene objects: {len(scene.objects)}")
     print(f"  HAT.base base mesh: {len(hat.data.vertices)} verts, {len(hat.data.polygons)} faces, {quads} quads, {len(hat.data.polygons) - quads} non quads")
-    print(f"  HAT.base evaluated (solidify + subsurf level {hat.modifiers['Smooth'].levels}): {eval_verts} verts, {eval_faces} faces")
+    print(f"  HAT.base evaluated ({', '.join(m.name for m in hat.modifiers)}): {eval_verts} verts, {eval_faces} faces")
     for vg in hat.vertex_groups:
         count = sum(1 for v in hat.data.vertices if any(g.group == vg.index for g in v.groups))
         print(f"  vertex group '{vg.name}': {count} verts")
@@ -522,7 +638,7 @@ def main():
     set_world(scene)
     hats_col = collection("Hats")
     rig_col = collection("Camera and Lights")
-    hat = build_hat_base(hats_col)
+    hat = import_purchased_cap(hats_col) or build_hat_base(hats_col)
     cam = build_camera(rig_col)
     build_rig(rig_col)
     path, dt = render_preview(scene, SCRIPT)

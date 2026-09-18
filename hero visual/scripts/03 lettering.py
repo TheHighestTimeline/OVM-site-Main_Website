@@ -36,7 +36,7 @@ WORDS = [
 # ---------------------------------------------------------------- parameters
 CAP_HEIGHT = 0.022          # metres, letter height on the panel
 TRACKING = 1.06             # a little extra letter spacing, embroidery needs air
-LETTER_Z = 0.076            # centre height of the word on the crown
+LETTER_Z = 0.150            # centre height of the word on the crown (the purchased cap's crown is 0.27 m tall)
 STITCH_ANGLE = math.radians(12.0)   # satin fill direction, from horizontal
 PITCH = 0.00046             # thread to thread spacing
 THREAD_WIDTH = 0.00050
@@ -362,7 +362,7 @@ def render_set(scene, cam, objects, key_light):
     saved_cam = (cam.location.copy(), cam.rotation_euler.copy(), cam.data.lens,
                  cam.data.dof.focus_distance, cam.data.dof.aperture_fstop)
     target = Vector((0.0, -0.14, LETTER_Z))
-    cam.location = Vector((0.10, -0.46, 0.13))
+    cam.location = Vector((0.10, -0.50, LETTER_Z + 0.02))
     look_at(cam, target)
     cam.data.lens = 100.0
     cam.data.dof.aperture_fstop = 11.0

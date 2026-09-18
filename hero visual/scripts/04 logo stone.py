@@ -41,7 +41,7 @@ SMALL_CAPS_SCALE = 0.70      # small capitals as a fraction of the capitals, mea
 LETTER_BASELINE = -0.46      # baseline below the O centre, as a fraction of the O diameter
 LETTER_GAP = -0.01           # the n tucks just under the ring's edge, one word
 LETTER_TRACKING = 0.86
-KERNING = {"V": -0.11, "M": -0.05, "i": -0.02, "b": -0.02}   # pull these letters toward the one before them, in em
+KERNING = {"V": -0.07, "M": -0.02, "i": -0.02, "b": -0.02}   # pull these letters toward the one before them, in em
 VOXEL_LETTERS = 0.0009   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
 EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
@@ -433,10 +433,10 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
 
     # deep cracks with raised lips, sparse
     crack_d = voronoi(wobbled, 3.2, "DISTANCE_TO_EDGE", (-1000, 0))
-    crack_core = map_range(crack_d, 0.006, 0.0, 0.0, 1.0, (-800, 0))
-    crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.006, 0.014, 1.0, 0.0, (-800, -150)),
-                          map_range(crack_d, 0.0, 0.006, 0.0, 1.0, (-800, -300)), (-600, -200))
-    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.56, (-800, -420))
+    crack_core = map_range(crack_d, 0.013, 0.0, 0.0, 1.0, (-800, 0))
+    crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.013, 0.024, 1.0, 0.0, (-800, -150)),
+                          map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
+    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.50, (-800, -420))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
     lip = math_node("MULTIPLY", math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200)), cracks, (-300, -200))
 
@@ -504,7 +504,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0070, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0110, (-200, -1800)), (200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045 * chips, (-200, -2400)), (800, -1600))
@@ -605,7 +605,9 @@ def main():
     col = collection("Logo")
     t0 = time.time()
     logo, radii, letters_width, font_path = build_logo(col)
-    mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=0.15, grain_amt=1.0, ao=0.25)
+    # letters: stone grey, cracks only (no veins), cracks wide enough to read at hero distance
+    mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=0.0, pits_amt=0.6, chips=0.15, grain_amt=1.0, ao=0.35,
+                               body_dark=(0.085, 0.088, 0.095), body_light=(0.26, 0.265, 0.28), rough_min=0.70, rough_max=0.90)
     # the ring after the client's design render: polished dark grey face, all the depth in the recesses
     ring_mat = build_stone_material("MAT.stone ring", cracks=0.0, veins_amt=0.0, pits_amt=0.0, chips=0.0, grain_amt=0.06, ao=0.9,
                                     body_dark=(0.07, 0.075, 0.085), body_light=(0.20, 0.21, 0.23), rough_min=0.24, rough_max=0.50,

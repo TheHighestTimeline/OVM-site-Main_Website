@@ -25,10 +25,10 @@ from mathutils import Vector
 SCRIPT = "02 fabric and seams"
 
 # ---------------------------------------------------------------- parameters
-FABRIC_BASE = (0.030, 0.029, 0.028)     # linear, not pure black
+FABRIC_BASE = (0.022, 0.021, 0.020)     # linear, not pure black
 FABRIC_ROUGH_MIN = 0.72
 FABRIC_ROUGH_MAX = 0.86
-SHEEN_WEIGHT = 0.35
+SHEEN_WEIGHT = 0.22
 SHEEN_ROUGHNESS = 0.30
 SHEEN_TINT = (1.0, 0.96, 0.90, 1.0)    # very slightly warm
 WEAVE_PERIOD = 0.0005                   # metres per thread, about 20 threads per cm
@@ -236,6 +236,41 @@ def build_fabric_material():
     set_input(bump, "Strength", WEAVE_BUMP_STRENGTH)
     set_input(bump, "Distance", 0.0004)
     nt.links.new(relief.outputs["Value"], bump.inputs["Height"])
+
+    # the purchased cap ships a twill diffuse and normal map. Use the normal
+    # map for the weave relief and the diffuse (desaturated, low contrast) as
+    # tone variation. The colour stays our black, nothing painted shows.
+    normal_img = bpy.data.images.get("baseball_cap_texture_NORM.jpg")
+    diffuse_img = bpy.data.images.get("baseball_cap_texture.jpg")
+    if normal_img is not None:
+        uv = node(nt, "ShaderNodeUVMap", (-900, -900), uv_map="UVMap")
+        ntex = node(nt, "ShaderNodeTexImage", (-650, -900))
+        ntex.image = normal_img
+        normal_img.colorspace_settings.name = "Non-Color"
+        nt.links.new(uv.outputs["UV"], ntex.inputs["Vector"])
+        nmap = node(nt, "ShaderNodeNormalMap", (-350, -900), uv_map="UVMap")
+        set_input(nmap, "Strength", 0.28)
+        nt.links.new(ntex.outputs["Color"], nmap.inputs["Color"])
+        nt.links.new(nmap.outputs["Normal"], bump.inputs["Normal"])
+    if diffuse_img is not None:
+        uv2 = node(nt, "ShaderNodeUVMap", (-900, 750), uv_map="UVMap")
+        dtex = node(nt, "ShaderNodeTexImage", (-650, 750))
+        dtex.image = diffuse_img
+        nt.links.new(uv2.outputs["UV"], dtex.inputs["Vector"])
+        tone = node(nt, "ShaderNodeMapRange", (-400, 750))
+        set_input(tone, "From Min", 0.25)
+        set_input(tone, "From Max", 0.75)
+        set_input(tone, "To Min", 0.96)
+        set_input(tone, "To Max", 1.04)
+        nt.links.new(dtex.outputs["Color"], tone.inputs["Value"])
+        tone_mix = node(nt, "ShaderNodeMix", (400, 600), data_type="RGBA", blend_type="MULTIPLY")
+        set_input(tone_mix, "Factor", 1.0)
+        nt.links.new(col_mix.outputs["Result"], tone_mix.inputs["A"])
+        tone_rgb = node(nt, "ShaderNodeCombineColor", (200, 700))
+        for i in range(3):
+            nt.links.new(tone.outputs["Result"], tone_rgb.inputs[i])
+        nt.links.new(tone_rgb.outputs["Color"], tone_mix.inputs["B"])
+        nt.links.new(tone_mix.outputs["Result"], bsdf.inputs["Base Color"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     mat.displacement_method = "BUMP"
     return mat
@@ -301,7 +336,7 @@ class Snapper:
         """Cast along a direction from a little behind the point."""
         d = Vector(direction).normalized()
         origin = Vector(point) - d * back
-        hit, loc, normal, _ = self.ob.ray_cast(origin, d, distance=max(back * 3.0, 0.1))
+        hit, loc, normal, _ = self.ob.ray_cast(origin, d, distance=max(back * 3.0, 0.4))
         if not hit:
             return None
         return loc.copy(), normal.copy()
@@ -436,37 +471,87 @@ def group_vertices(ob, group_name):
     return [v for v in ob.data.vertices if any(g.group == vg.index for g in v.groups)]
 
 
+def seam_paths(hat, group_name="seam"):
+    """Walk the marked seam edges among a vertex group into polylines.
+
+    Returns a list of paths, each a list of (position, normal) in object space,
+    split at junctions so every path is a single run of stitching."""
+    me = hat.data
+    vg = hat.vertex_groups[group_name]
+    in_group = {v.index for v in me.vertices if any(g.group == vg.index for g in v.groups)}
+    adj = {}
+    for e in me.edges:
+        a, b = e.vertices
+        if e.use_seam and a in in_group and b in in_group:
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+    if not adj:
+        # procedural cap: no marked seams, fall back to grouping by angle around the crown
+        return None
+    used = set()
+    paths = []
+    ends = [v for v, n in adj.items() if len(n) != 2] or [next(iter(adj))]
+    for start in ends:
+        for nxt in adj[start]:
+            edge = (min(start, nxt), max(start, nxt))
+            if edge in used:
+                continue
+            path = [start, nxt]
+            used.add(edge)
+            prev, cur = start, nxt
+            while len(adj[cur]) == 2:
+                a, b = adj[cur]
+                following = a if b == prev else b
+                edge = (min(cur, following), max(cur, following))
+                if edge in used:
+                    break
+                used.add(edge)
+                path.append(following)
+                prev, cur = cur, following
+            paths.append([(me.vertices[i].co.copy(), me.vertices[i].normal.copy()) for i in path])
+    return paths
+
+
 def build_seam_stitches(hat, col, material):
     snap = Snapper(hat)
     stitches = StitchMesh(SEED)
-    seam_verts = group_vertices(hat, "seam")
-    # group the seam vertices into six seams by their angle around the crown
-    seams = {}
-    pole_z = max(v.co.z for v in seam_verts)
-    for v in seam_verts:
-        co = v.co
-        if co.z >= pole_z - 1e-6:
-            continue  # pole
-        ang = math.degrees(math.atan2(co.x, -co.y)) % 360.0
-        key = int(round(ang / 60.0)) % 6
-        seams.setdefault(key, []).append((co.copy(), v.normal.copy()))
-    if len(seams) != 6:
-        raise RuntimeError(f"{SCRIPT}: expected 6 seams, found {len(seams)}")
     top_z = max(v.co.z for v in hat.data.vertices)
     placed = 0
     rows = 0
-    for key in sorted(seams):
-        pts = sorted(seams[key], key=lambda c: c[0].z)
-        pts = [(p, n) for (p, n) in pts if SEAM_Z_START <= p.z <= top_z - SEAM_TOP_STOP]
+    paths = seam_paths(hat)
+    if paths is None:
+        seam_verts = group_vertices(hat, "seam")
+        seams = {}
+        pole_z = max(v.co.z for v in seam_verts)
+        for v in seam_verts:
+            co = v.co
+            if co.z >= pole_z - 1e-6:
+                continue
+            ang = math.degrees(math.atan2(co.x, -co.y)) % 360.0
+            key = int(round(ang / 60.0)) % 6
+            seams.setdefault(key, []).append((co.copy(), v.normal.copy()))
+        paths = [sorted(seams[k], key=lambda c: c[0].z) for k in sorted(seams)]
+        paths = [[(p, n) for (p, n) in path if SEAM_Z_START <= p.z <= top_z - SEAM_TOP_STOP] for path in paths]
+    for pts in paths:
+        length = sum((b[0] - a[0]).length for a, b in zip(pts, pts[1:]))
+        if length < 0.025:
+            continue
+        # stop short of the button on paths that reach the top
+        pts = [(p, n) for (p, n) in pts if p.z <= top_z - SEAM_TOP_STOP]
+        if len(pts) < 2:
+            continue
         # snap the seam polyline to the outer surface
         surface = []
         for p, n in pts:
             r = snap.from_outside(p, n)
             if r:
                 surface.append(r)
-        if len(surface) < 3:
+        if len(surface) < 2:
             continue
-        for sign in (-1.0, 1.0):
+        # a level path (the band seam) gets one row, a panel seam gets two
+        zs = [p.z for p, _ in surface]
+        signs = (0.0,) if (max(zs) - min(zs)) < 0.02 else (-1.0, 1.0)
+        for sign in signs:
             row = []
             row_n = []
             for i, (p, n) in enumerate(surface):
@@ -478,25 +563,43 @@ def build_seam_stitches(hat, col, material):
                 row_n.append(n)
             placed += stitches.add_row(row, snap, normals=row_n)
             rows += 1
-    # brim topstitch rows, measured in from the brim edge
-    edge = group_vertices(hat, "brim edge")
-    edge_pts = sorted((v.co.copy() for v in edge), key=lambda c: math.atan2(c.x, -c.y))
+    # brim topstitch rows, measured in from the brim edge. The outline comes from
+    # the cap's own marked brim seam, walked in order, and each row is inset
+    # along the outline's in plane normal so it follows the real shape.
     brim_rows = 0
-    for inset in BRIM_ROWS:
-        row = []
-        for p in edge_pts:
-            inward = -Vector((p.x, p.y, 0.0)).normalized()
-            row.append(p + inward * inset + Vector((0.0, 0.0, 0.03)))
-        # cast straight down onto the brim top
-        pts = resample(row, 0.0005)
-        surface = []
-        for p in pts:
-            r = snap.along(p, (0.0, 0.0, -1.0), back=0.0)
-            if r and r[1].z > 0.35 and r[0].z < 0.012:
-                surface.append(r[0])
-        if len(surface) > 3:
-            placed += stitches.add_row(surface, snap, snap_dir=(0.0, 0.0, -1.0))
-            brim_rows += 1
+    outline_paths = seam_paths(hat, "brim edge")
+    if outline_paths:
+        outline = max(outline_paths, key=lambda p: sum((b[0] - a[0]).length for a, b in zip(p, p[1:])))
+        pts = [p for p, _ in outline]
+        # drop points sitting on the crown itself
+        pts = [p for p in pts if math.hypot(p.x, p.y) > 0.150]
+    else:
+        edge = group_vertices(hat, "brim edge")
+        pts = sorted((v.co.copy() for v in edge), key=lambda c: math.atan2(c.x, -c.y))
+    if len(pts) > 3:
+        brim_top = max(p.z for p in pts) + 0.05
+        for inset in BRIM_ROWS:
+            row = []
+            for i, p in enumerate(pts):
+                nxt = pts[min(i + 1, len(pts) - 1)]
+                prv = pts[max(i - 1, 0)]
+                along = Vector((nxt.x - prv.x, nxt.y - prv.y, 0.0))
+                if along.length < 1e-9:
+                    continue
+                along.normalize()
+                normal = Vector((-along.y, along.x, 0.0))
+                if normal.dot(Vector((-p.x, -p.y, 0.0))) < 0.0:
+                    normal = -normal          # point toward the crown axis
+                row.append(p + normal * inset)
+            dense = resample(row, 0.0005)
+            surface = []
+            for p in dense:
+                r = snap.along(Vector((p.x, p.y, brim_top)), (0.0, 0.0, -1.0), back=0.0)
+                if r and r[1].z > 0.35 and math.hypot(r[0].x, r[0].y) > 0.150:
+                    surface.append(r[0])
+            if len(surface) > 3:
+                placed += stitches.add_row(surface, snap, snap_dir=(0.0, 0.0, -1.0))
+                brim_rows += 1
     ob = stitches.to_object("STITCH.seam", col, material)
     ob.parent = hat
     ob.matrix_parent_inverse = hat.matrix_world.inverted()
@@ -518,8 +621,8 @@ def render_set(scene, cam, hat, key):
 
     # tight crop on a panel seam
     saved = (cam.location.copy(), cam.rotation_euler.copy(), cam.data.lens, cam.data.dof.focus_distance)
-    cam.location = Vector((0.20, -0.40, 0.24))
-    target = Vector((0.0, -0.118, 0.085))
+    cam.location = Vector((0.22, -0.46, 0.34))
+    target = Vector((0.0, -0.13, 0.16))
     look_at(cam, target)
     cam.data.lens = 100.0
     fstop_saved = cam.data.dof.aperture_fstop
@@ -534,7 +637,7 @@ def render_set(scene, cam, hat, key):
     others = [(o, o.data.energy) for o in (fill, rim) if o]
     for o, _ in others:
         o.data.energy *= 0.15
-    key.location = Vector((0.95, -0.30, 0.14))
+    key.location = Vector((0.95, -0.30, 0.22))
     look_at(key, target)
     key.data.energy = key_saved[2] * 1.5
     results["raking"] = render_preview(scene, "02 fabric raking light")
@@ -566,7 +669,7 @@ def main():
         hat.data.materials.append(metal)     # slot 1, the eyelet grommets
 
     # black fabric needs more light than the grey placeholder did
-    key.data.energy = 12.0
+    key.data.energy = 9.0
     fill = bpy.data.objects.get("LIGHT.fill")
     rim = bpy.data.objects.get("LIGHT.rim")
     if fill:

@@ -28,8 +28,9 @@ STACK_X = -0.95
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.104          # floating, with air between the hats
-STACK_YAW_JITTER = 6.0         # degrees, deterministic per hat
-STACK_XY_JITTER = 0.012        # metres
+STACK_YAW_STEP = 2.5           # degrees, each hat turned a little further than the one below
+STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
+STACK_XY_JITTER = 0.006        # metres
 LOGO_LOCATION = Vector((-0.42, -0.35, 0.30))  # centre of the O, nearer the camera than the hats
 FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))
@@ -145,9 +146,10 @@ def build_stack(base, seam_master, hats_col):
         hat = bpy.data.objects.new(name, base.data)   # linked duplicate, shared mesh
         link(hat, hats_col)
         copy_modifiers(base, hat)
-        yaw = math.radians(rng.uniform(-STACK_YAW_JITTER, STACK_YAW_JITTER))
+        # same direction, a couple of degrees further each hat up the stack
+        yaw = math.radians(level * STACK_YAW_STEP + rng.uniform(-STACK_YAW_JITTER, STACK_YAW_JITTER))
         if key == "founder":
-            yaw = math.radians(2.0)        # the founder hat sits square
+            yaw = 0.0                      # the founder hat sits square
         hat.location = Vector((STACK_X + rng.uniform(-STACK_XY_JITTER, STACK_XY_JITTER),
                                STACK_Y + rng.uniform(-STACK_XY_JITTER, STACK_XY_JITTER),
                                STACK_BASE_Z + level * STACK_SPACING))

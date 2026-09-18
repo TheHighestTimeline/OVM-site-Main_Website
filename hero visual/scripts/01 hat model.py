@@ -36,14 +36,14 @@ PANELS = 6
 # crease crisp under subdivision.
 PANEL_OFFSETS = [0.0, 2.0, 8.0, 15.0, 22.5, 30.0, 37.5, 45.0, 52.0, 58.0]
 SEAM_INSET = 0.0016         # seam crease depth
-PANEL_BULGE = 0.008         # panel puff between seams, fraction of radius
+PANEL_BULGE = 0.005         # panel puff between seams, fraction of radius
 BACK_SHIFT = 0.032          # the top of the crown sits this far behind the opening centre
-BRIM_LENGTH = 0.092         # at the centre front, long like the reference
+BRIM_LENGTH = 0.088         # at the centre front
 BRIM_TIP_LENGTH = 0.005     # where the brim runs out at the sides
-BRIM_HALF_ANGLE = math.radians(76)
+BRIM_HALF_ANGLE = math.radians(64)
 BRIM_ROOT_TILT = math.radians(9)    # the brim leaves the crown angled down
 BRIM_DROOP = 0.028          # extra curve down toward the front edge
-BRIM_CURL = 0.075           # pre curved brim, the side edges drop this much below the centre line
+BRIM_CURL = 0.060           # pre curved brim, the side edges drop this much below the centre line
 BRIM_RADIAL_STEPS = 9
 FABRIC_THICKNESS = 0.0015
 BRIM_THICKNESS = 0.0032
@@ -283,7 +283,7 @@ def build_hat_bmesh():
 
     def brim_length(phi_s):
         c = math.cos(phi_s * (math.pi / 2.0) / BRIM_HALF_ANGLE)
-        return BRIM_TIP_LENGTH + (BRIM_LENGTH - BRIM_TIP_LENGTH) * max(0.0, c) ** 0.55
+        return BRIM_TIP_LENGTH + (BRIM_LENGTH - BRIM_TIP_LENGTH) * max(0.0, c) ** 0.8
 
     rows = [[base[i] for i in root_ids]]
     for k in range(1, BRIM_RADIAL_STEPS + 1):

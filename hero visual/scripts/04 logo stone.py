@@ -32,16 +32,19 @@ SCRIPT = "04 logo stone"
 
 # ---------------------------------------------------------------- parameters
 O_DIAMETER = 0.20            # outer diameter of the ring, metres. The mark is about 7 times this wide.
-DEPTH = 0.055                # stone thickness along the view axis, ring and letters alike
+DEPTH = 0.11                 # stone thickness along the view axis, ring and letters alike
 RING_FILE = os.path.join("reference", "OVM ring.blend")
 RING_OBJECT = "MayanRingDebossedBoth"
 LETTERS = "neVibeMedia"
 LETTER_CAP_HEIGHT = 0.61     # capital height as a fraction of the O diameter, measured from the reference
 SMALL_CAPS_SCALE = 0.70      # small capitals as a fraction of the capitals, measured from the reference
 LETTER_BASELINE = -0.46      # baseline below the O centre, as a fraction of the O diameter
-LETTER_GAP = 0.06            # gap between the ring and the n, as a fraction of the O diameter
-LETTER_TRACKING = 1.0
-BEVEL_WIDTH = 0.0025
+LETTER_GAP = 0.015           # gap between the ring and the n, as a fraction of the O diameter
+LETTER_TRACKING = 0.94
+KERNING = {"V": -0.09, "M": -0.03}   # pull these letters toward the one before them, in em
+VOXEL_LETTERS = 0.0022   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
+VOXEL_RING = 0.0007      # remesh size for the ring, fine enough to keep the engraving
+BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3
 
 FONT_CANDIDATES = [
@@ -186,6 +189,23 @@ def append_ring():
     return me
 
 
+def remesh(me, voxel):
+    """Voxel remesh a mesh datablock through a temporary object. Returns a new dense mesh."""
+    tmp = bpy.data.objects.new("TMP.remesh", me)
+    bpy.context.scene.collection.objects.link(tmp)
+    mod = tmp.modifiers.new("Remesh", "REMESH")
+    mod.mode = "VOXEL"
+    mod.voxel_size = voxel
+    mod.adaptivity = 0.0
+    mod.use_smooth_shade = True
+    bpy.context.view_layer.update()
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    dense = bpy.data.meshes.new_from_object(tmp.evaluated_get(depsgraph))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    bpy.data.meshes.remove(me)
+    return dense
+
+
 def ring_into(bm):
     """Scale the appended ring to O_DIAMETER and DEPTH, stand it upright facing -Y, add to bm."""
     me = append_ring()
@@ -202,6 +222,7 @@ def ring_into(bm):
     me.transform(xform)
     ys = [v.co.y for v in me.vertices]
     me.transform(Matrix.Translation((0.0, -min(ys), 0.0)))     # front face at y = 0, body toward +y
+    me = remesh(me, VOXEL_RING)
     for p in me.polygons:
         p.material_index = 0
         p.use_smooth = True
@@ -236,6 +257,7 @@ def letters_into(bm, r_out):
     bpy.context.view_layer.update()
     for i, ch in enumerate(LETTERS):
         curve.body_format[i].use_small_caps = ch.islower()
+        curve.body_format[i].kerning = KERNING.get(ch, 0.0)
     # pass one, flat, to measure the capital height at size 1
     depsgraph = bpy.context.evaluated_depsgraph_get()
     flat = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
@@ -260,17 +282,11 @@ def letters_into(bm, r_out):
     place = Matrix.Translation((x_start, DEPTH / 2.0, z_base))
     xform = place @ flip_depth @ to_upright @ Matrix.Scale(k, 4)
     me.transform(xform)
+    me = remesh(me, VOXEL_LETTERS)
     for p in me.polygons:
         p.material_index = 0
-    before = set(bm.faces)
+        p.use_smooth = True
     bm.from_mesh(me)
-    # text fills are big n-gons, triangulate them so bevel and shading behave
-    letter_faces = [f for f in bm.faces if f not in before]
-    result = bmesh.ops.triangulate(bm, faces=letter_faces, quad_method="BEAUTY", ngon_method="BEAUTY")
-    # letters shade flat: their front triangles reach across the whole glyph, so
-    # smooth normals would bend visibly. The bevel modifier rounds the edges.
-    for f in result["faces"]:
-        f.smooth = False
     width = (max(xs) - min(xs)) * k
     bpy.data.meshes.remove(me)
     return width, font_path
@@ -284,7 +300,6 @@ def build_logo(col):
     bm = bmesh.new()
     r_in, r_out = ring_into(bm)
     letters_width, font_path = letters_into(bm, r_out)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     me = bpy.data.meshes.new("LOGO.stone")
     bm.to_mesh(me)
@@ -293,12 +308,7 @@ def build_logo(col):
     link(ob, col)
     ob.location = PLACE
 
-    bevel = ob.modifiers.new("Carved edge", "BEVEL")
-    bevel.width = BEVEL_WIDTH
-    bevel.segments = BEVEL_SEGMENTS
-    bevel.limit_method = "ANGLE"
-    bevel.angle_limit = math.radians(30.0)
-    bevel.harden_normals = True
+    # the voxel remesh already softens the edges, no bevel modifier needed
     return ob, (r_in, r_out), letters_width, font_path
 
 
@@ -321,15 +331,15 @@ def build_stone_material():
 
     # cavity from pointiness. Around 0.5 is flat, lower is concave, higher is convex.
     cavity = node(nt, "ShaderNodeMapRange", (-900, -500))
-    set_input(cavity, "From Min", 0.40)
+    set_input(cavity, "From Min", 0.46)
     set_input(cavity, "From Max", 0.50)
     set_input(cavity, "To Min", 1.0)
     set_input(cavity, "To Max", 0.0)
     cavity.clamp = True
     nt.links.new(geo.outputs["Pointiness"], cavity.inputs["Value"])
     edge = node(nt, "ShaderNodeMapRange", (-900, -750))
-    set_input(edge, "From Min", 0.52)
-    set_input(edge, "From Max", 0.62)
+    set_input(edge, "From Min", 0.51)
+    set_input(edge, "From Max", 0.56)
     set_input(edge, "To Min", 0.0)
     set_input(edge, "To Max", 1.0)
     edge.clamp = True
@@ -342,11 +352,25 @@ def build_stone_material():
     set_input(mottle, "Roughness", 0.55)
     nt.links.new(coords.outputs["Object"], mottle.inputs["Vector"])
     ramp = node(nt, "ShaderNodeValToRGB", (-650, 300))
-    ramp.color_ramp.elements[0].position = 0.35
-    ramp.color_ramp.elements[0].color = (0.24, 0.25, 0.28, 1.0)
-    ramp.color_ramp.elements[1].position = 0.70
-    ramp.color_ramp.elements[1].color = (0.50, 0.51, 0.54, 1.0)
-    nt.links.new(mottle.outputs["Fac"], ramp.inputs["Fac"])
+    ramp.color_ramp.elements[0].position = 0.30
+    ramp.color_ramp.elements[0].color = (0.16, 0.165, 0.19, 1.0)
+    ramp.color_ramp.elements[1].position = 0.72
+    ramp.color_ramp.elements[1].color = (0.52, 0.53, 0.56, 1.0)
+    # veins: stretched noise, mixed into the mottle before the ramp
+    vein_map = node(nt, "ShaderNodeMapping", (-1100, 450), vector_type="POINT")
+    set_input(vein_map, "Scale", (1.0, 3.5, 1.0))
+    nt.links.new(coords.outputs["Object"], vein_map.inputs["Vector"])
+    veins = node(nt, "ShaderNodeTexNoise", (-900, 450))
+    set_input(veins, "Scale", 4.0)
+    set_input(veins, "Detail", 8.0)
+    set_input(veins, "Roughness", 0.75)
+    set_input(veins, "Distortion", 1.2)
+    nt.links.new(vein_map.outputs["Vector"], veins.inputs["Vector"])
+    mixed = node(nt, "ShaderNodeMix", (-780, 380), data_type="FLOAT")
+    set_input(mixed, "Factor", 0.45)
+    nt.links.new(mottle.outputs["Fac"], mixed.inputs["A"])
+    nt.links.new(veins.outputs["Fac"], mixed.inputs["B"])
+    nt.links.new(mixed.outputs["Result"], ramp.inputs["Fac"])
     dirt = node(nt, "ShaderNodeMix", (-300, 300), data_type="RGBA", blend_type="MIX")
     set_input(dirt, "B", (0.06, 0.055, 0.05, 1.0))
     nt.links.new(ramp.outputs["Color"], dirt.inputs["A"])
@@ -364,11 +388,11 @@ def build_stone_material():
     nt.links.new(edge_amount.outputs["Value"], lift.inputs["Factor"])
     # crackle, thin dark lines like the reference stone, from the edges of voronoi cells
     crack_cells = node(nt, "ShaderNodeTexVoronoi", (-900, 700), feature="DISTANCE_TO_EDGE")
-    set_input(crack_cells, "Scale", 28.0)
+    set_input(crack_cells, "Scale", 22.0)
     set_input(crack_cells, "Randomness", 1.0)
     nt.links.new(coords.outputs["Object"], crack_cells.inputs["Vector"])
     crack_mask = node(nt, "ShaderNodeMapRange", (-650, 700))
-    set_input(crack_mask, "From Min", 0.0025)
+    set_input(crack_mask, "From Min", 0.006)
     set_input(crack_mask, "From Max", 0.0)
     set_input(crack_mask, "To Min", 0.0)
     set_input(crack_mask, "To Max", 1.0)
@@ -379,7 +403,7 @@ def build_stone_material():
     set_input(crack_gate, "Scale", 6.0)
     nt.links.new(coords.outputs["Object"], crack_gate.inputs["Vector"])
     gate = node(nt, "ShaderNodeMath", (-650, 950), operation="GREATER_THAN")
-    set_input(gate, 1, 0.45)
+    set_input(gate, 1, 0.40)
     nt.links.new(crack_gate.outputs["Fac"], gate.inputs[0])
     crack = node(nt, "ShaderNodeMath", (-400, 800), operation="MULTIPLY")
     nt.links.new(crack_mask.outputs["Result"], crack.inputs[0])
@@ -421,13 +445,13 @@ def build_stone_material():
     set_input(broad_c, 1, 0.5)
     nt.links.new(broad.outputs["Fac"], broad_c.inputs[0])
     broad_s = node(nt, "ShaderNodeMath", (-400, -1000), operation="MULTIPLY")
-    set_input(broad_s, 1, 0.0018)
+    set_input(broad_s, 1, 0.0045)
     nt.links.new(broad_c.outputs["Value"], broad_s.inputs[0])
     grain_c = node(nt, "ShaderNodeMath", (-600, -1250), operation="SUBTRACT")
     set_input(grain_c, 1, 0.5)
     nt.links.new(grain.outputs["Fac"], grain_c.inputs[0])
     grain_s = node(nt, "ShaderNodeMath", (-400, -1250), operation="MULTIPLY")
-    set_input(grain_s, 1, 0.0006)
+    set_input(grain_s, 1, 0.0012)
     nt.links.new(grain_c.outputs["Value"], grain_s.inputs[0])
     # chips: cells of a voronoi, only where the surface is convex, only some cells
     chip_cells = node(nt, "ShaderNodeTexVoronoi", (-900, -1500), feature="F1")
@@ -441,7 +465,7 @@ def build_stone_material():
     nt.links.new(chip_pick.outputs["Value"], chip_edge.inputs[0])
     nt.links.new(edge.outputs["Result"], chip_edge.inputs[1])
     chip_s = node(nt, "ShaderNodeMath", (-200, -1500), operation="MULTIPLY")
-    set_input(chip_s, 1, -0.0020)
+    set_input(chip_s, 1, -0.0060)
     nt.links.new(chip_edge.outputs["Value"], chip_s.inputs[0])
     sum1 = node(nt, "ShaderNodeMath", (0, -1100), operation="ADD")
     nt.links.new(broad_s.outputs["Value"], sum1.inputs[0])
@@ -451,7 +475,7 @@ def build_stone_material():
     nt.links.new(chip_s.outputs["Value"], sum2.inputs[1])
     # cracks cut into the surface a little
     crack_disp = node(nt, "ShaderNodeMath", (200, -1350), operation="MULTIPLY")
-    set_input(crack_disp, 1, -0.0012)
+    set_input(crack_disp, 1, -0.0035)
     nt.links.new(crack.outputs["Value"], crack_disp.inputs[0])
     sum3 = node(nt, "ShaderNodeMath", (400, -1100), operation="ADD")
     nt.links.new(sum2.outputs["Value"], sum3.inputs[0])
@@ -461,9 +485,7 @@ def build_stone_material():
     set_input(disp, "Scale", 1.0)
     nt.links.new(sum3.outputs["Value"], disp.inputs["Height"])
     nt.links.new(disp.outputs["Displacement"], out.inputs["Displacement"])
-    # bump only: the letter meshes are too sparse for true displacement, which
-    # turned their faces into facets. The bevel carries the edge shape.
-    mat.displacement_method = "BUMP"
+    mat.displacement_method = "BOTH"    # the mesh is voxel dense, real displacement works
     return mat
 
 
@@ -522,6 +544,12 @@ def render_set(scene, cam, logo, key):
     if fill:
         fill.data.energy = 8.0
     results["raking"] = render_preview(scene, "04 logo raking light")
+    # detail crop on the ring and the first letters
+    crop_target = Vector((lo + O_DIAMETER * 0.85, centre.y, centre.z - O_DIAMETER * 0.05))
+    cam.location = crop_target + Vector((0.12, -O_DIAMETER * 2.6, 0.10))
+    look_at(cam, crop_target)
+    cam.data.dof.focus_distance = (crop_target - cam.location).length
+    results["detail"] = render_preview(scene, "04 logo detail crop")
     for name, (loc, rot, e) in saved_lights.items():
         l = bpy.data.objects[name]
         l.location, l.rotation_euler, l.data.energy = loc, rot, e
@@ -558,13 +586,13 @@ def main():
     print(f"==== {SCRIPT} runtime report ====")
     print(f"  scene objects: {len(scene.objects)}")
     print(f"  LOGO.stone: {len(logo.data.vertices)} verts, {len(logo.data.polygons)} faces base, "
-          f"{eval_counts[0]} verts, {eval_counts[1]} faces evaluated (bevel), built in {build_time:.1f} s")
+          f"{eval_counts[0]} verts, {eval_counts[1]} faces evaluated (voxel remeshed, letters {VOXEL_LETTERS * 1000:.1f} mm, ring {VOXEL_RING * 1000:.1f} mm), built in {build_time:.1f} s")
     print(f"  O outer diameter: {diameter:.4f} m")
     print(f"  O ring stroke thickness: {stroke:.4f} m (inner radius {radii[0]:.4f} m, outer radius {radii[1]:.4f} m)")
     print(f"  ring source: {RING_FILE} / {RING_OBJECT}")
     print(f"  letters '{LETTERS}' width {letters_width:.4f} m, font {font_path}")
     print(f"  stone depth {DEPTH:.3f} m, whole mark {dims.x:.3f} x {dims.z:.3f} m, location {tuple(round(c, 3) for c in logo.location)}")
-    print(f"  stone cast: cool, blue grey. Base colour range (linear) 0.24 to 0.54")
+    print(f"  stone cast: cool, blue grey. Base colour range (linear) 0.16 to 0.56")
     for k, (path, dt) in results.items():
         print(f"  render {k}: {dt:.1f} s -> {path}")
     print("=================================")

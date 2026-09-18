@@ -43,9 +43,9 @@ LETTER_GAP = 0.015           # gap between the ring and the n, as a fraction of 
 LETTER_TRACKING = 0.94
 KERNING = {"V": -0.09, "M": -0.03}   # pull these letters toward the one before them, in em
 VOXEL_LETTERS = 0.0013   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
-EROSION_SMOOTH = 5       # smoothing passes that round the letter edges into worn boulders
-HEWN_LARGE = 0.0050      # metres, low frequency lumps baked into the letter geometry
-HEWN_SMALL = 0.0025      # metres, mid frequency lumps
+EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
+HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
+HEWN_SMALL = 0.0         # metres, mid frequency lumps
 VOXEL_RING = 0.0005      # remesh size for the ring, fine enough to keep the engraving
 BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3
@@ -210,7 +210,11 @@ def remesh(me, voxel):
 
 
 def hew(me, smooth_passes, large, small, seed_offset):
-    """Round the edges and push the surface around with noise, so the silhouette is hand cut."""
+    """Round the edges and push the surface around with noise, so the silhouette is hand cut.
+
+    Off by default (all zero): Tanner wants sharp corners, the eroded look read as bubbly."""
+    if not smooth_passes and not large and not small:
+        return me
     from mathutils import noise
     bm = bmesh.new()
     bm.from_mesh(me)
@@ -433,9 +437,9 @@ def build_stone_material():
     body_fac = noise_tex(obj, 5.0, 7.0, 0.6, (-1000, 1100))
     ramp = node(nt, "ShaderNodeValToRGB", (-800, 1100))
     ramp.color_ramp.elements[0].position = 0.32
-    ramp.color_ramp.elements[0].color = (0.11, 0.098, 0.088, 1.0)
+    ramp.color_ramp.elements[0].color = (0.22, 0.225, 0.25, 1.0)
     ramp.color_ramp.elements[1].position = 0.70
-    ramp.color_ramp.elements[1].color = (0.34, 0.325, 0.305, 1.0)
+    ramp.color_ramp.elements[1].color = (0.50, 0.51, 0.54, 1.0)
     nt.links.new(body_fac, ramp.inputs["Fac"])
     col = ramp.outputs["Color"]
 
@@ -449,7 +453,7 @@ def build_stone_material():
         nt.links.new(fac, n.inputs["Factor"])
         return n.outputs["Result"]
 
-    col = mix_rgb(col, (0.80, 0.78, 0.74, 1.0), veins, (0, 900))
+    col = mix_rgb(col, (0.78, 0.78, 0.78, 1.0), veins, (0, 900))
     col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.9, (-200, 700)), (200, 900))
     col = mix_rgb(col, (0.07, 0.065, 0.06, 1.0), pits, (400, 900))
     col = mix_rgb(col, (0.06, 0.055, 0.05, 1.0), math_node("MULTIPLY", cavity, 0.7, (-200, 500)), (600, 900))
@@ -464,8 +468,8 @@ def build_stone_material():
     nt.links.new(rough, bsdf.inputs["Roughness"])
 
     # displacement: facets and lumps, grain, veins slightly proud, cracks cut with lips, pits sunk
-    facets = math_node("MULTIPLY", math_node("SUBTRACT", voronoi(obj, 11.0, "F1", (-1000, -1500)), 0.35, (-800, -1500)), 0.0055, (-600, -1500))
-    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0040, (-600, -1700))
+    facets = math_node("MULTIPLY", math_node("SUBTRACT", voronoi(obj, 11.0, "F1", (-1000, -1500)), 0.35, (-800, -1500)), 0.0, (-600, -1500))   # off, read as bubbly
+    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0018, (-600, -1700))
     grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0016, (-600, -1900))
     grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0022, (-600, -2050))
     grain = math_node("ADD", grain, grain2, (-500, -1950))
@@ -588,7 +592,7 @@ def main():
     print(f"  ring source: {RING_FILE} / {RING_OBJECT}")
     print(f"  letters '{LETTERS}' width {letters_width:.4f} m, font {font_path}")
     print(f"  stone depth {DEPTH:.3f} m, whole mark {dims.x:.3f} x {dims.z:.3f} m, location {tuple(round(c, 3) for c in logo.location)}")
-    print(f"  stone cast: warm grey mineral body (linear 0.16 to 0.40) with white calcite veins")
+    print(f"  stone cast: warm grey mineral body (linear 0.16 to 0.40) with white calcite veins, sharp corners, no erosion")
     for k, (path, dt) in results.items():
         print(f"  render {k}: {dt:.1f} s -> {path}")
     print("=================================")

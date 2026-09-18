@@ -436,11 +436,12 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     veins = math_node("MULTIPLY", veins, veins_amt, (-300, 500))
 
     # deep cracks with raised lips, sparse
-    crack_d = voronoi(wobbled, 3.2, "DISTANCE_TO_EDGE", (-1000, 0))
+    crack_d = voronoi(wobbled, 4.0, "DISTANCE_TO_EDGE", (-1000, 0))
     crack_core = map_range(crack_d, 0.013, 0.0, 0.0, 1.0, (-800, 0))
     crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.013, 0.024, 1.0, 0.0, (-800, -150)),
                           map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
-    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.53, (-800, -420))
+    # gate at letter scale, not word scale, so every letter gets a similar share of cracks
+    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, -200)), 0.52, (-800, -420))
     away_from_edge = map_range(edge, 0.0, 0.6, 1.0, 0.0, (-600, -500))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
     crack = math_node("MULTIPLY", crack, away_from_edge, (-200, 0))
@@ -473,7 +474,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
         return n.outputs["Result"]
 
     col = mix_rgb(col, (0.78, 0.78, 0.78, 1.0), veins, (0, 900))
-    col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.75, (-200, 700)), (200, 900))
+    col = mix_rgb(col, (0.05, 0.045, 0.04, 1.0), math_node("MULTIPLY", crack, 0.55, (-200, 700)), (200, 900))
     col = mix_rgb(col, (0.07, 0.065, 0.06, 1.0), pits, (400, 900))
     col = mix_rgb(col, (0.06, 0.055, 0.05, 1.0), math_node("MULTIPLY", cavity, 0.7, (-200, 500)), (600, 900))
     col = mix_rgb(col, (0.52, 0.51, 0.50, 1.0), math_node("MULTIPLY", edge, 0.35, (-200, 350)), (800, 900))
@@ -502,17 +503,17 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
 
     # displacement: facets and lumps, grain, veins slightly proud, cracks cut with lips, pits sunk
     facets = math_node("MULTIPLY", math_node("SUBTRACT", voronoi(obj, 11.0, "F1", (-1000, -1500)), 0.35, (-800, -1500)), 0.0, (-600, -1500))   # off, read as bubbly
-    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0018 * relief, (-600, -1700))
-    grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0016, (-600, -1900))
-    grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0022, (-600, -2050))
+    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0007 * relief, (-600, -1700))
+    grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0010, (-600, -1900))
+    grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0012, (-600, -2050))
     grain = math_node("ADD", grain, grain2, (-500, -1950))
     grain = math_node("MULTIPLY", grain, grain_amt, (-400, -1950))
     grain = math_node("MULTIPLY", grain, map_range(edge, 0.0, 1.0, 1.0, 0.15, (-500, -2100)), (-300, -1950))
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0080, (-200, -1800)), (200, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0055, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0006, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045 * chips, (-200, -2400)), (800, -1600))
     disp = node(nt, "ShaderNodeDisplacement", (1600, -700))
@@ -613,7 +614,7 @@ def main():
     t0 = time.time()
     logo, radii, letters_width, font_path = build_logo(col)
     # letters: stone grey, cracks only (no veins), cracks wide enough to read at hero distance
-    mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=0.0, pits_amt=0.6, chips=0.15, grain_amt=1.0, ao=0.35,
+    mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=0.0, pits_amt=0.6, chips=0.10, grain_amt=1.0, ao=0.20,
                                body_dark=(0.085, 0.088, 0.095), body_light=(0.26, 0.265, 0.28), rough_min=0.70, rough_max=0.90)
     # the ring after the client's design render: polished dark grey face, all the depth in the recesses
     ring_mat = build_stone_material("MAT.stone ring", cracks=0.0, veins_amt=0.0, pits_amt=0.0, chips=0.0, grain_amt=0.06, ao=0.9,

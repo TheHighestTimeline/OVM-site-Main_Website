@@ -442,7 +442,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
                           map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
     # gate at letter scale, not word scale, so every letter gets a similar share of cracks
     crack_gate = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, -200)), 0.36, (-800, -420))
-    away_from_edge = map_range(edge, 0.0, 0.9, 1.0, 0.15, (-600, -500))
+    away_from_edge = map_range(edge, 0.0, 0.5, 1.0, 0.0, (-600, -500))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
     crack = math_node("MULTIPLY", crack, away_from_edge, (-200, 0))
     # a finer crevice network on top: shallower, narrower, but still dark in the floor
@@ -520,7 +520,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", big_crack, -0.0085, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", big_crack, -0.0070, (-200, -1800)), (200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", fine, -0.0025, (-200, -1900)), (300, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0006, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))

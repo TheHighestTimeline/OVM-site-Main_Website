@@ -252,9 +252,12 @@ def ring_into(bm):
     me = remesh(me, VOXEL_RING)
     me = hew(me, 0, 0.0, 0.0, 3.0)   # never eroded, the engraving stays exact
     for p in me.polygons:
-        p.material_index = 1          # MAT.stone ring, the cleaner chiselled variant
         p.use_smooth = True
+    before = set(bm.faces)
     bm.from_mesh(me)
+    for f in bm.faces:
+        if f not in before:
+            f.material_index = 1      # MAT.stone ring, the polished chiselled variant
     r_in_src = min(radii)
     bpy.data.meshes.remove(me)
     return r_in_src * k, r_out_src * k
@@ -517,12 +520,12 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
 # ------------------------------------------------------------------ measure
 def measure(ob):
     """Outer diameter and stroke thickness of the O, from the built mesh, in metres."""
-    R = O_DIAMETER / 2.0
-    radii = []
-    for v in ob.data.vertices:
-        if v.co.x > R * 1.02:
-            continue           # letters
-        radii.append(math.hypot(v.co.x, v.co.z))
+    me = ob.data
+    ring_verts = set()
+    for p in me.polygons:
+        if p.material_index == 1:
+            ring_verts.update(p.vertices)
+    radii = [math.hypot(me.vertices[i].co.x, me.vertices[i].co.z) for i in ring_verts]
     r_out = max(radii)
     r_in = min(radii)
     return 2.0 * r_out, r_out - r_in

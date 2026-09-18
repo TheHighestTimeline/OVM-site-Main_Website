@@ -436,7 +436,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     crack_core = map_range(crack_d, 0.013, 0.0, 0.0, 1.0, (-800, 0))
     crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.013, 0.024, 1.0, 0.0, (-800, -150)),
                           map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
-    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.50, (-800, -420))
+    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 2.2, 2.0, 0.5, (-1000, -200)), 0.53, (-800, -420))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
     lip = math_node("MULTIPLY", math_node("MULTIPLY", crack_lip, crack_gate, (-400, -200)), cracks, (-300, -200))
 
@@ -504,7 +504,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     total = math_node("ADD", facets, broad, (-400, -1600))
     total = math_node("ADD", total, grain, (-200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", veins, 0.0007, (-200, -1400)), (0, -1600))
-    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0110, (-200, -1800)), (200, -1600))
+    total = math_node("ADD", total, math_node("MULTIPLY", crack, -0.0060, (-200, -1800)), (200, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", lip, 0.0025, (-200, -2000)), (400, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", pits, -0.0030, (-200, -2200)), (600, -1600))
     total = math_node("ADD", total, math_node("MULTIPLY", math_node("MULTIPLY", edge, noise_tex(obj, 40.0, 2.0, 0.5, (-1000, -2400)), (-400, -2400)), -0.0045 * chips, (-200, -2400)), (800, -1600))

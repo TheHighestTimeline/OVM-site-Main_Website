@@ -608,7 +608,7 @@ def main():
     mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=0.15, grain_amt=1.0, ao=0.25)
     # the ring after the client's design render: polished dark grey face, all the depth in the recesses
     ring_mat = build_stone_material("MAT.stone ring", cracks=0.0, veins_amt=0.0, pits_amt=0.0, chips=0.0, grain_amt=0.06, ao=0.9,
-                                    body_dark=(0.12, 0.125, 0.14), body_light=(0.30, 0.31, 0.33), rough_min=0.26, rough_max=0.55,
+                                    body_dark=(0.07, 0.075, 0.085), body_light=(0.20, 0.21, 0.23), rough_min=0.24, rough_max=0.50,
                                     coat=0.35, specular=0.5, ao_distance=0.03, relief=0.0)
     # never clear() here: clearing material slots zeroes every face's material index
     for i, m in enumerate((mat, ring_mat)):

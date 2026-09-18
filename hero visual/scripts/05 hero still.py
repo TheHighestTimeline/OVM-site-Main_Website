@@ -24,13 +24,14 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -0.80
+STACK_X = -0.95
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.104          # floating, with air between the hats
 STACK_YAW_JITTER = 6.0         # degrees, deterministic per hat
 STACK_XY_JITTER = 0.012        # metres
-LOGO_LOCATION = Vector((-0.02, -0.35, 0.28))  # centre of the O, nearer the camera than the hats
+LOGO_LOCATION = Vector((-0.42, -0.35, 0.30))  # centre of the O, nearer the camera than the hats
+FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))
 CAMERA_TARGET = Vector((-0.15, -0.10, 0.25))
 CAMERA_FSTOP = 5.6
@@ -186,13 +187,20 @@ def place_logo(logo):
     logo.rotation_euler = (0.0, 0.0, 0.0)
 
 
-def set_camera(cam):
-    cam.location = CAMERA_LOCATION
-    look_at(cam, CAMERA_TARGET)
+def set_camera(cam, hats, logo):
+    """Frame stack and logo together at 85 mm, keeping the handbook's camera height and angle."""
+    lo, hi = world_bbox(hats + [logo])
+    width = (hi.x - lo.x) * FRAME_MARGIN
+    centre_x = (lo.x + hi.x) / 2.0
+    near_y = lo.y
+    distance = width * 85.0 / cam.data.sensor_width
+    cam.location = Vector((centre_x, near_y - distance, CAMERA_LOCATION.z * distance / 4.6))
+    target = Vector((centre_x, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0))
+    look_at(cam, target)
     cam.data.lens = 85.0
     cam.data.dof.use_dof = True
     cam.data.dof.aperture_fstop = CAMERA_FSTOP
-    cam.data.dof.focus_distance = (CAMERA_TARGET - cam.location).length
+    cam.data.dof.focus_distance = (target - cam.location).length
     bpy.context.scene.camera = cam
 
 
@@ -255,8 +263,8 @@ def main():
     hats = build_stack(base, seam_master, hats_col)
     hide_masters(base, seam_master)
     place_logo(logo)
-    set_camera(cam)
     bpy.context.view_layer.update()      # fresh bounding boxes for the new objects
+    set_camera(cam, hats, logo)
     key, fill, rim, founder_light = relight(rig_col, hats, logo)
     scene.render.film_transparent = True
 

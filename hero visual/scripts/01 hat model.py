@@ -29,7 +29,7 @@ SCRIPT = "01 hat model"
 # All lengths in metres.
 CROWN_WIDTH = 0.28          # side to side across the opening, per handbook
 CROWN_DEPTH_RATIO = 1.06    # front to back is a little longer than side to side
-CROWN_HEIGHT = 0.150
+CROWN_HEIGHT = 0.158
 PANELS = 6
 # Angular offsets inside one 60 degree panel, in degrees, starting at the seam.
 # The tight 2 degree loops either side of the seam are what make the seam
@@ -37,25 +37,30 @@ PANELS = 6
 PANEL_OFFSETS = [0.0, 2.0, 8.0, 15.0, 22.5, 30.0, 37.5, 45.0, 52.0, 58.0]
 SEAM_INSET = 0.0016         # seam crease depth
 PANEL_BULGE = 0.008         # panel puff between seams, fraction of radius
-BACK_SHIFT = 0.026          # the top of the crown sits this far behind the opening centre
-BRIM_LENGTH = 0.075         # at the centre front
-BRIM_TIP_LENGTH = 0.004     # where the brim runs out at the sides
-BRIM_HALF_ANGLE = math.radians(68)
-BRIM_ROOT_TILT = math.radians(12)   # the brim leaves the crown angled down
-BRIM_DROOP = 0.022          # extra curve down toward the front edge
-BRIM_CURL = 0.078           # side edges rise this much relative to the centre
-BRIM_RADIAL_STEPS = 7
+BACK_SHIFT = 0.032          # the top of the crown sits this far behind the opening centre
+BRIM_LENGTH = 0.092         # at the centre front, long like the reference
+BRIM_TIP_LENGTH = 0.005     # where the brim runs out at the sides
+BRIM_HALF_ANGLE = math.radians(76)
+BRIM_ROOT_TILT = math.radians(9)    # the brim leaves the crown angled down
+BRIM_DROOP = 0.028          # extra curve down toward the front edge
+BRIM_CURL = 0.075           # pre curved brim, the side edges drop this much below the centre line
+BRIM_RADIAL_STEPS = 9
 FABRIC_THICKNESS = 0.0015
 BRIM_THICKNESS = 0.0032
-BUTTON_RADIUS = 0.011
+BUTTON_RADIUS = 0.013
+EYELET_ZF = 0.70            # eyelet height as a fraction of crown height, one per panel
+EYELET_RADIUS = 0.0045
+EYELET_THICKNESS = 0.0012
 
 # Crown profile, revolved. (radius as a fraction of half width, z as a
 # fraction of crown height). The last entry is the pole.
+# A relaxed, rounded dome after the reference cap: smooth from band to
+# button, no flat top, the back sloping lower than the front.
 PROFILE = [
-    (1.000, 0.000), (1.004, 0.110), (1.002, 0.240), (0.996, 0.370),
-    (0.984, 0.490), (0.962, 0.600), (0.925, 0.700), (0.865, 0.790),
-    (0.775, 0.865), (0.650, 0.925), (0.480, 0.968), (0.290, 0.992),
-    (0.120, 0.999), (0.000, 1.000),
+    (1.000, 0.000), (1.003, 0.100), (0.996, 0.215), (0.978, 0.330),
+    (0.948, 0.445), (0.902, 0.555), (0.838, 0.660), (0.752, 0.755),
+    (0.645, 0.838), (0.515, 0.905), (0.365, 0.955), (0.200, 0.987),
+    (0.080, 0.999), (0.000, 1.000),
 ]
 ANGLES = [math.radians(60.0 * p + o) for p in range(PANELS) for o in PANEL_OFFSETS]
 SEGMENTS = len(ANGLES)
@@ -278,7 +283,7 @@ def build_hat_bmesh():
 
     def brim_length(phi_s):
         c = math.cos(phi_s * (math.pi / 2.0) / BRIM_HALF_ANGLE)
-        return BRIM_TIP_LENGTH + (BRIM_LENGTH - BRIM_TIP_LENGTH) * max(0.0, c) ** 0.7
+        return BRIM_TIP_LENGTH + (BRIM_LENGTH - BRIM_TIP_LENGTH) * max(0.0, c) ** 0.55
 
     rows = [[base[i] for i in root_ids]]
     for k in range(1, BRIM_RADIAL_STEPS + 1):
@@ -289,9 +294,11 @@ def build_hat_bmesh():
             root = base[i].co
             outward = Vector((root.x, root.y, 0.0)).normalized()
             d = t * brim_length(phi_s)
+            # lateral position across the brim drives the curl, so the sides bend down
+            lateral = abs((root + outward * d).x) / (R + BRIM_LENGTH)
             z = (-d * math.tan(BRIM_ROOT_TILT)
                  - BRIM_DROOP * (d / BRIM_LENGTH) ** 2
-                 + BRIM_CURL * (phi_s / BRIM_HALF_ANGLE) ** 2 * (d / BRIM_LENGTH))
+                 - BRIM_CURL * lateral ** 2.2 * (d / BRIM_LENGTH) ** 0.6)
             v = bm.verts.new(root + outward * d + Vector((0.0, 0.0, z)))
             row.append(v)
             groups["brim"].append(v)
@@ -312,6 +319,48 @@ def build_hat_bmesh():
         v.co.z += CROWN_HEIGHT - 0.0025
         v.co.y += BACK_SHIFT
         groups["button"].append(v)
+
+    # eyelets, one per panel, a small grommet ring sitting on the surface
+    groups["eyelet"] = []
+    eyelet_faces = []
+    for p in range(PANELS):
+        phi = math.radians(60.0 * p + 30.0)
+        # surface point and normal from the analytic profile at EYELET_ZF
+        zf = EYELET_ZF
+        rf = 0.0
+        for (r0, z0), (r1, z1) in zip(PROFILE, PROFILE[1:]):
+            if z0 <= zf <= z1:
+                rf = r0 + (r1 - r0) * (zf - z0) / (z1 - z0)
+                break
+        centre = ring_point(rf, zf, 0)
+        # rebuild for this angle
+        r = rf * R * (1.0 + PANEL_BULGE)
+        centre = Vector((r * math.sin(phi), -r * math.cos(phi) * CROWN_DEPTH_RATIO + BACK_SHIFT * zf ** 1.6, zf * CROWN_HEIGHT))
+        # approximate normal: outward radial tilted up by the profile slope
+        slope = 0.0
+        for (r0, z0), (r1, z1) in zip(PROFILE, PROFILE[1:]):
+            if z0 <= zf <= z1:
+                slope = ((r1 - r0) * R) / ((z1 - z0) * CROWN_HEIGHT)
+                break
+        radial = Vector((math.sin(phi), -math.cos(phi), 0.0))
+        normal = (radial + Vector((0.0, 0.0, -slope))).normalized()
+        before = set(bm.faces)
+        bmesh.ops.create_cone(bm, cap_ends=False, segments=24,
+                              radius1=EYELET_RADIUS, radius2=EYELET_RADIUS,
+                              depth=EYELET_THICKNESS)
+        new_faces = [f for f in bm.faces if f not in before]
+        ring_verts = {v for f in new_faces for v in f.verts}
+        # thicken the tube into a grommet: inner wall plus rims
+        geom = bmesh.ops.solidify(bm, geom=new_faces, thickness=-EYELET_THICKNESS * 0.9)
+        grommet_faces = [f for f in bm.faces if f not in before]
+        grommet_verts = {v for f in grommet_faces for v in f.verts}
+        rot = normal.to_track_quat("Z", "Y").to_matrix().to_4x4()
+        for v in grommet_verts:
+            v.co = rot @ v.co + centre + normal * (EYELET_THICKNESS * 0.35)
+            groups["eyelet"].append(v)
+        eyelet_faces.extend(grommet_faces)
+    for f in eyelet_faces:
+        f.material_index = 1
 
     bm.verts.index_update()
     groups = {name: [v.index for v in verts] for name, verts in groups.items()}
@@ -358,6 +407,17 @@ def build_hat_base(col):
         bsdf.inputs["Roughness"].default_value = 0.6
     if not me.materials:
         me.materials.append(mat)
+    metal = bpy.data.materials.get("MAT.eyelet black")
+    if metal is None:
+        metal = bpy.data.materials.new("MAT.eyelet black")
+        if metal.node_tree is None:
+            metal.use_nodes = True
+        b = metal.node_tree.nodes.get("Principled BSDF")
+        b.inputs["Base Color"].default_value = (0.02, 0.02, 0.02, 1.0)
+        b.inputs["Metallic"].default_value = 0.9
+        b.inputs["Roughness"].default_value = 0.28
+    if len(me.materials) < 2:
+        me.materials.append(metal)
     return ob
 
 
@@ -372,8 +432,8 @@ def build_camera(col):
     cam = bpy.data.objects.new("CAM.hero", cam_data)
     link(cam, col)
     # look dev framing for a single hat: three quarter view, a little above
-    cam.location = Vector((0.72, -1.28, 0.40))
-    target = Vector((0.0, -0.03, 0.062))
+    cam.location = Vector((0.78, -1.30, 0.42))
+    target = Vector((0.0, -0.04, 0.055))
     look_at(cam, target)
     cam_data.dof.focus_distance = (target - cam.location).length
     bpy.context.scene.camera = cam

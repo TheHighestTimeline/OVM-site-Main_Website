@@ -45,7 +45,7 @@ THREAD_LIFT = 0.00060                   # centre of the thread above the fabric
 SEAM_ROW_OFFSET = 0.0027                # two rows straddle each seam
 SEAM_Z_START = 0.014                    # above the band
 SEAM_TOP_STOP = 0.024                   # stop short of the button
-BRIM_ROWS = [0.0045, 0.0090, 0.0135, 0.0180]  # topstitch rows measured in from the brim edge
+BRIM_ROWS = [0.004 + 0.0042 * i for i in range(6)]  # six topstitch rows in from the brim edge, like the reference
 JITTER_SPACING = 0.10                   # fraction of stitch length
 JITTER_HEIGHT = 0.12
 JITTER_SIDE = 0.00012                   # metres
@@ -559,8 +559,11 @@ def main():
     fabric = build_fabric_material()
     bone = build_thread_material("MAT.thread bone", BONE, roughness=0.32, specular=0.65, coat=0.15)
     gold = build_thread_material("MAT.thread gold", GOLD, roughness=0.22, specular=0.85, coat=0.35)
+    metal = bpy.data.materials.get("MAT.eyelet black")
     hat.data.materials.clear()
     hat.data.materials.append(fabric)
+    if metal is not None:
+        hat.data.materials.append(metal)     # slot 1, the eyelet grommets
 
     # black fabric needs more light than the grey placeholder did
     key.data.energy = 12.0

@@ -2,25 +2,22 @@
 
 OVM Hat Hero, phase one, step 1D.
 
-Builds LOGO.stone, the OVM mark carved in stone. The O is the ornamental
-ring from the OneVibeMedia wordmark (raised inner and outer lips with a
-Greek key meander carved in the channel between them), followed by VM in a
-bold serif. Every part is a closed solid so a hat passing into the ring is
-occluded by the stone's thickness.
+Builds LOGO.stone, the OneVibeMedia wordmark carved in stone, after the
+stone reference render (reference/OneVibeMediaGroup stone reference.webp,
+without the Group). The O is the engraved ring from the 3D printed ring
+project, appended from reference/OVM ring.blend (object
+MayanRingDebossedBoth, a closed solid). The letters neVibeMedia follow in
+Cinzel with small capitals, extruded to the same depth. Every part is a
+closed solid so a hat passing into the ring is occluded by the stone.
 
-Source check: the repository has no SVG and no model from the 3D printed
-ring project, only the wordmark PNG (copied to reference/OVM wordmark
-black.png). The ring proportions were measured from that PNG: inner radius
-0.667 of the outer, inner lip to 0.74, channel to 0.93, outer lip to 1.0.
-
-Stone material: cool grey cast (chosen so the gold reveal is the only warm
-thing in frame), two scale displacement, pointiness driven cavity darkening
-with roughness inverse to cavity, a little subsurface, chipping along the
-bevel edges, no mirror reflection.
+Stone material: light, slightly cool grey so it reads against a dark page
+and leaves gold as the only warm note. Two scale relief as bump, crackle
+lines, pointiness driven cavity darkening with roughness inverse to cavity,
+a little subsurface, chipping along the bevel edges, no mirror reflection.
 
 Reports the O's outer diameter and ring stroke thickness in metres, both
-measured from the built mesh. Renders two 800 px previews, straight on and
-at raking light.
+measured from the built mesh, plus the whole mark's width. Renders two
+800 px previews, straight on and at raking light.
 
 Idempotent.
 """
@@ -28,47 +25,29 @@ import bpy
 import bmesh
 import math
 import os
-import random
 import time
 from mathutils import Vector, Matrix
 
 SCRIPT = "04 logo stone"
 
 # ---------------------------------------------------------------- parameters
-O_DIAMETER = 0.36            # outer diameter of the ring, metres
-DEPTH = 0.10                 # stone thickness, along the view axis
-R_INNER = 0.667              # fractions of the outer radius, measured from the PNG
-R_LIP_IN = 0.740
-R_LIP_OUT = 0.930
-CHANNEL_DEPTH = 0.009        # channel recessed below the lips
-BLOCK_HEIGHT = 0.0065        # meander blocks rise this much from the channel floor
-BLOCK_MARGIN = 0.0012        # clearance from the lips
-MOTIFS = 20                  # meander repeats around the ring
-ANGULAR_SEGMENTS = 240
-LETTERS = "VM"
-LETTER_CAP_HEIGHT = 0.56     # fraction of the O diameter
-LETTER_GAP = 0.04            # metres between the O and the V
-LETTER_TRACKING = 0.98
-BEVEL_WIDTH = 0.0045
+O_DIAMETER = 0.20            # outer diameter of the ring, metres. The mark is about 7 times this wide.
+DEPTH = 0.055                # stone thickness along the view axis, ring and letters alike
+RING_FILE = os.path.join("reference", "OVM ring.blend")
+RING_OBJECT = "MayanRingDebossedBoth"
+LETTERS = "neVibeMedia"
+LETTER_CAP_HEIGHT = 0.61     # capital height as a fraction of the O diameter, measured from the reference
+SMALL_CAPS_SCALE = 0.70      # small capitals as a fraction of the capitals, measured from the reference
+LETTER_BASELINE = -0.46      # baseline below the O centre, as a fraction of the O diameter
+LETTER_GAP = 0.06            # gap between the ring and the n, as a fraction of the O diameter
+LETTER_TRACKING = 1.0
+BEVEL_WIDTH = 0.0025
 BEVEL_SEGMENTS = 3
-SEED = 4
-
-# Greek key, one motif, 5 rows (inner to outer) by 6 columns (around). The
-# top rail (last row) is continuous from motif to motif.
-MEANDER = [
-    "XXX.X.",
-    "X.X.X.",
-    "X.XXX.",
-    "X.....",
-    "XXXXXX",
-]
 
 FONT_CANDIDATES = [
+    os.path.join("reference", "fonts", "Cinzel Bold.ttf"),   # static instance, overlaps removed. The variable file breaks Blender text fill.
     r"C:\Windows\Fonts\timesbd.ttf",
-    r"C:\Windows\Fonts\georgiab.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-    "/Library/Fonts/Times New Roman Bold.ttf",
     "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
 ]
 
@@ -189,88 +168,83 @@ def set_input(n, name, value):
 
 
 # ------------------------------------------------------------------ the ring
-def polar(r, y, a):
-    """Ring lies in the XZ plane, revolved around Y (the view axis). Front face at y = 0."""
-    return Vector((r * math.cos(a), y, r * math.sin(a)))
+def append_ring():
+    """Append the ring project mesh. Returns a fresh Mesh datablock, or fails loudly."""
+    path = os.path.join(WORK, RING_FILE)
+    if not os.path.exists(path):
+        raise RuntimeError(f"{SCRIPT}: ring model not found at {path}")
+    for old in [o for o in bpy.data.objects if o.name.startswith("TMP.ring")]:
+        bpy.data.objects.remove(old, do_unlink=True)
+    with bpy.data.libraries.load(path, link=False) as (src, dst):
+        if RING_OBJECT not in src.objects:
+            raise RuntimeError(f"{SCRIPT}: {RING_FILE} has no object {RING_OBJECT}. It has {list(src.objects)}")
+        dst.objects = [RING_OBJECT]
+    ob = dst.objects[0]
+    ob.name = "TMP.ring"
+    me = ob.data
+    bpy.data.objects.remove(ob, do_unlink=True)
+    return me
 
 
-def build_ring(bm):
-    R = O_DIAMETER / 2.0
-    r_in, r_li, r_lo = R * R_INNER, R * R_LIP_IN, R * R_LIP_OUT
-    c = CHANNEL_DEPTH
-    # closed profile in (radius, depth), walked so the revolved faces point outward
-    profile = [
-        (r_in, DEPTH), (r_in, 0.0), (r_li, 0.0), (r_li, c),
-        (r_lo, c), (r_lo, 0.0), (R, 0.0), (R, DEPTH),
-    ]
-    rings = []
-    for i in range(ANGULAR_SEGMENTS):
-        a = 2.0 * math.pi * i / ANGULAR_SEGMENTS
-        rings.append([bm.verts.new(polar(r, y, a)) for (r, y) in profile])
-    n = len(profile)
-    for i in range(ANGULAR_SEGMENTS):
-        a, b = rings[i], rings[(i + 1) % ANGULAR_SEGMENTS]
-        for j in range(n):
-            k = (j + 1) % n
-            bm.faces.new((a[j], b[j], b[k], a[k]))
-    return r_in, r_li, r_lo, R
-
-
-def build_meander(bm, r_li, r_lo):
-    rows = len(MEANDER)
-    cols = len(MEANDER[0])
-    inner = r_li + BLOCK_MARGIN
-    outer = r_lo - BLOCK_MARGIN
-    cell_r = (outer - inner) / rows
-    cell_a = 2.0 * math.pi / (MOTIFS * cols)
-    y_top = CHANNEL_DEPTH - BLOCK_HEIGHT
-    y_bottom = CHANNEL_DEPTH + 0.002      # sunk into the floor so no faces are coplanar
-    count = 0
-    for m in range(MOTIFS):
-        for row in range(rows):
-            for col in range(cols):
-                if MEANDER[row][col] != "X":
-                    continue
-                r0 = inner + row * cell_r
-                r1 = r0 + cell_r
-                a0 = (m * cols + col) * cell_a
-                a1 = a0 + cell_a
-                # merge horizontally adjacent cells would be cleaner, but separate
-                # blocks give the meander its slightly hand cut look once bevelled
-                v = [bm.verts.new(polar(r, y, a)) for (r, y, a) in (
-                    (r0, y_bottom, a0), (r1, y_bottom, a0), (r1, y_bottom, a1), (r0, y_bottom, a1),
-                    (r0, y_top, a0), (r1, y_top, a0), (r1, y_top, a1), (r0, y_top, a1))]
-                bm.faces.new((v[0], v[3], v[2], v[1]))   # bottom (faces +y, into the stone)
-                bm.faces.new((v[4], v[5], v[6], v[7]))   # top, faces the viewer (-y)
-                bm.faces.new((v[0], v[1], v[5], v[4]))
-                bm.faces.new((v[1], v[2], v[6], v[5]))
-                bm.faces.new((v[2], v[3], v[7], v[6]))
-                bm.faces.new((v[3], v[0], v[4], v[7]))
-                count += 1
-    return count
+def ring_into(bm):
+    """Scale the appended ring to O_DIAMETER and DEPTH, stand it upright facing -Y, add to bm."""
+    me = append_ring()
+    radii = [math.hypot(v.co.x, v.co.y) for v in me.vertices]
+    zs = [v.co.z for v in me.vertices]
+    r_out_src = max(radii)
+    depth_src = max(zs) - min(zs)
+    k = (O_DIAMETER / 2.0) / r_out_src
+    kz = DEPTH / depth_src
+    # source ring lies in XY with its axis on Z. Stand it up: axis to +Y, front face at y = 0.
+    scale = Matrix.Diagonal((k, k, kz, 1.0))
+    upright = Matrix.Rotation(math.radians(-90.0), 4, "X")     # z -> +y, y -> -z... then recentre
+    xform = upright @ scale
+    me.transform(xform)
+    ys = [v.co.y for v in me.vertices]
+    me.transform(Matrix.Translation((0.0, -min(ys), 0.0)))     # front face at y = 0, body toward +y
+    for p in me.polygons:
+        p.material_index = 0
+        p.use_smooth = True
+    bm.from_mesh(me)
+    r_in_src = min(radii)
+    bpy.data.meshes.remove(me)
+    return r_in_src * k, r_out_src * k
 
 
 def load_font():
-    for path in FONT_CANDIDATES:
+    for rel in FONT_CANDIDATES:
+        path = rel if os.path.isabs(rel) else os.path.join(WORK, rel)
         if os.path.exists(path):
             return bpy.data.fonts.load(path, check_existing=True), path
     return bpy.data.fonts.get("Bfont Regular") or bpy.data.fonts[0], "Blender built in font"
 
 
-def build_letters(bm, R):
-    """Extruded VM to the right of the ring, same depth, returned as its width."""
+def letters_into(bm, r_out):
+    """Extruded neVibeMedia with small caps to the right of the ring. Returns (width, font path)."""
     font, font_path = load_font()
     curve = bpy.data.curves.new("TMP.logo letters", "FONT")
     curve.body = LETTERS
     curve.font = font
     curve.size = 1.0
     curve.space_character = LETTER_TRACKING
-    curve.extrude = DEPTH / 2.0
+    curve.small_caps_scale = SMALL_CAPS_SCALE
     curve.fill_mode = "BOTH"
     curve.align_x = "LEFT"
     curve.align_y = "BOTTOM_BASELINE"
     ob = bpy.data.objects.new("TMP.logo letters", curve)
     bpy.context.scene.collection.objects.link(ob)
+    bpy.context.view_layer.update()
+    for i, ch in enumerate(LETTERS):
+        curve.body_format[i].use_small_caps = ch.islower()
+    # pass one, flat, to measure the capital height at size 1
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    flat = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
+    measured_cap = max(v.co.y for v in flat.vertices)
+    bpy.data.meshes.remove(flat)
+    k = (O_DIAMETER * LETTER_CAP_HEIGHT) / measured_cap
+    # pass two, extruded so that after scaling by k the letters are exactly DEPTH thick
+    curve.extrude = DEPTH / (2.0 * k)
+    bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     me = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
     bpy.data.objects.remove(ob, do_unlink=True)
@@ -279,21 +253,24 @@ def build_letters(bm, R):
         bpy.data.fonts.remove(font)
 
     xs = [v.co.x for v in me.vertices]
-    ys = [v.co.y for v in me.vertices]
-    measured_cap = max(ys) - min(ys)
-    k = (O_DIAMETER * LETTER_CAP_HEIGHT) / measured_cap
-    # text is built in XY with extrusion along Z. Rotate so it stands in XZ
-    # and extrudes along +Y (into the stone), bottom aligned to the ring's bottom
-    # of the letters sitting on the ring's centre line minus half the cap height.
-    to_upright = Matrix.Rotation(math.radians(90.0), 4, "X")   # y -> z, z -> -y
-    flip_depth = Matrix.Scale(-1.0, 4, Vector((0.0, 1.0, 0.0)))  # extrude toward +y
-    x_start = R + LETTER_GAP - min(xs) * k
-    z_base = -(O_DIAMETER * LETTER_CAP_HEIGHT) / 2.0 - min(ys) * k
+    to_upright = Matrix.Rotation(math.radians(90.0), 4, "X")          # y -> z, extrusion z -> -y
+    flip_depth = Matrix.Scale(-1.0, 4, Vector((0.0, 1.0, 0.0)))        # extrusion toward +y
+    x_start = r_out + LETTER_GAP * O_DIAMETER - min(xs) * k
+    z_base = LETTER_BASELINE * O_DIAMETER
     place = Matrix.Translation((x_start, DEPTH / 2.0, z_base))
-    scale = Matrix.Scale(k, 4)
-    xform = place @ flip_depth @ to_upright @ scale
+    xform = place @ flip_depth @ to_upright @ Matrix.Scale(k, 4)
     me.transform(xform)
+    for p in me.polygons:
+        p.material_index = 0
+    before = set(bm.faces)
     bm.from_mesh(me)
+    # text fills are big n-gons, triangulate them so bevel and shading behave
+    letter_faces = [f for f in bm.faces if f not in before]
+    result = bmesh.ops.triangulate(bm, faces=letter_faces, quad_method="BEAUTY", ngon_method="BEAUTY")
+    # letters shade flat: their front triangles reach across the whole glyph, so
+    # smooth normals would bend visibly. The bevel modifier rounds the edges.
+    for f in result["faces"]:
+        f.smooth = False
     width = (max(xs) - min(xs)) * k
     bpy.data.meshes.remove(me)
     return width, font_path
@@ -305,9 +282,8 @@ def build_logo(col):
     if old is not None and old.users == 0:
         bpy.data.meshes.remove(old)
     bm = bmesh.new()
-    r_in, r_li, r_lo, R = build_ring(bm)
-    blocks = build_meander(bm, r_li, r_lo)
-    letters_width, font_path = build_letters(bm, R)
+    r_in, r_out = ring_into(bm)
+    letters_width, font_path = letters_into(bm, r_out)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     me = bpy.data.meshes.new("LOGO.stone")
@@ -322,13 +298,8 @@ def build_logo(col):
     bevel.segments = BEVEL_SEGMENTS
     bevel.limit_method = "ANGLE"
     bevel.angle_limit = math.radians(30.0)
-    bevel.harden_normals = False
-    sub = ob.modifiers.new("Displacement density", "SUBSURF")
-    sub.subdivision_type = "SIMPLE"
-    sub.levels = 1
-    sub.render_levels = 2
-    me.shade_smooth_by_angle(angle=math.radians(35.0)) if hasattr(me, "shade_smooth_by_angle") else me.shade_smooth()
-    return ob, (r_in, r_li, r_lo, R), blocks, letters_width, font_path
+    bevel.harden_normals = True
+    return ob, (r_in, r_out), letters_width, font_path
 
 
 # --------------------------------------------------------------- material
@@ -372,12 +343,12 @@ def build_stone_material():
     nt.links.new(coords.outputs["Object"], mottle.inputs["Vector"])
     ramp = node(nt, "ShaderNodeValToRGB", (-650, 300))
     ramp.color_ramp.elements[0].position = 0.35
-    ramp.color_ramp.elements[0].color = (0.095, 0.102, 0.120, 1.0)
+    ramp.color_ramp.elements[0].color = (0.24, 0.25, 0.28, 1.0)
     ramp.color_ramp.elements[1].position = 0.70
-    ramp.color_ramp.elements[1].color = (0.215, 0.225, 0.245, 1.0)
+    ramp.color_ramp.elements[1].color = (0.50, 0.51, 0.54, 1.0)
     nt.links.new(mottle.outputs["Fac"], ramp.inputs["Fac"])
     dirt = node(nt, "ShaderNodeMix", (-300, 300), data_type="RGBA", blend_type="MIX")
-    set_input(dirt, "B", (0.035, 0.032, 0.030, 1.0))
+    set_input(dirt, "B", (0.06, 0.055, 0.05, 1.0))
     nt.links.new(ramp.outputs["Color"], dirt.inputs["A"])
     cav_amount = node(nt, "ShaderNodeMath", (-500, 100), operation="MULTIPLY")
     set_input(cav_amount, 1, 0.75)
@@ -385,13 +356,42 @@ def build_stone_material():
     nt.links.new(cav_amount.outputs["Value"], dirt.inputs["Factor"])
     # high points a touch lighter
     lift = node(nt, "ShaderNodeMix", (0, 300), data_type="RGBA", blend_type="MIX")
-    set_input(lift, "B", (0.28, 0.29, 0.31, 1.0))
+    set_input(lift, "B", (0.62, 0.63, 0.65, 1.0))
     nt.links.new(dirt.outputs["Result"], lift.inputs["A"])
     edge_amount = node(nt, "ShaderNodeMath", (-500, -100), operation="MULTIPLY")
     set_input(edge_amount, 1, 0.35)
     nt.links.new(edge.outputs["Result"], edge_amount.inputs[0])
     nt.links.new(edge_amount.outputs["Value"], lift.inputs["Factor"])
-    nt.links.new(lift.outputs["Result"], bsdf.inputs["Base Color"])
+    # crackle, thin dark lines like the reference stone, from the edges of voronoi cells
+    crack_cells = node(nt, "ShaderNodeTexVoronoi", (-900, 700), feature="DISTANCE_TO_EDGE")
+    set_input(crack_cells, "Scale", 28.0)
+    set_input(crack_cells, "Randomness", 1.0)
+    nt.links.new(coords.outputs["Object"], crack_cells.inputs["Vector"])
+    crack_mask = node(nt, "ShaderNodeMapRange", (-650, 700))
+    set_input(crack_mask, "From Min", 0.0025)
+    set_input(crack_mask, "From Max", 0.0)
+    set_input(crack_mask, "To Min", 0.0)
+    set_input(crack_mask, "To Max", 1.0)
+    crack_mask.clamp = True
+    nt.links.new(crack_cells.outputs["Distance"], crack_mask.inputs["Value"])
+    # only some cell edges crack, gated by a second noise
+    crack_gate = node(nt, "ShaderNodeTexNoise", (-900, 950))
+    set_input(crack_gate, "Scale", 6.0)
+    nt.links.new(coords.outputs["Object"], crack_gate.inputs["Vector"])
+    gate = node(nt, "ShaderNodeMath", (-650, 950), operation="GREATER_THAN")
+    set_input(gate, 1, 0.45)
+    nt.links.new(crack_gate.outputs["Fac"], gate.inputs[0])
+    crack = node(nt, "ShaderNodeMath", (-400, 800), operation="MULTIPLY")
+    nt.links.new(crack_mask.outputs["Result"], crack.inputs[0])
+    nt.links.new(gate.outputs["Value"], crack.inputs[1])
+    cracked = node(nt, "ShaderNodeMix", (250, 400), data_type="RGBA", blend_type="MIX")
+    set_input(cracked, "B", (0.04, 0.038, 0.036, 1.0))
+    nt.links.new(lift.outputs["Result"], cracked.inputs["A"])
+    crack_amt = node(nt, "ShaderNodeMath", (0, 800), operation="MULTIPLY")
+    set_input(crack_amt, 1, 0.85)
+    nt.links.new(crack.outputs["Value"], crack_amt.inputs[0])
+    nt.links.new(crack_amt.outputs["Value"], cracked.inputs["Factor"])
+    nt.links.new(cracked.outputs["Result"], bsdf.inputs["Base Color"])
 
     # roughness inverse to cavity: recesses rough, high points slightly polished
     rough = node(nt, "ShaderNodeMapRange", (300, 100))
@@ -421,7 +421,7 @@ def build_stone_material():
     set_input(broad_c, 1, 0.5)
     nt.links.new(broad.outputs["Fac"], broad_c.inputs[0])
     broad_s = node(nt, "ShaderNodeMath", (-400, -1000), operation="MULTIPLY")
-    set_input(broad_s, 1, 0.0030)
+    set_input(broad_s, 1, 0.0018)
     nt.links.new(broad_c.outputs["Value"], broad_s.inputs[0])
     grain_c = node(nt, "ShaderNodeMath", (-600, -1250), operation="SUBTRACT")
     set_input(grain_c, 1, 0.5)
@@ -441,7 +441,7 @@ def build_stone_material():
     nt.links.new(chip_pick.outputs["Value"], chip_edge.inputs[0])
     nt.links.new(edge.outputs["Result"], chip_edge.inputs[1])
     chip_s = node(nt, "ShaderNodeMath", (-200, -1500), operation="MULTIPLY")
-    set_input(chip_s, 1, -0.0035)
+    set_input(chip_s, 1, -0.0020)
     nt.links.new(chip_edge.outputs["Value"], chip_s.inputs[0])
     sum1 = node(nt, "ShaderNodeMath", (0, -1100), operation="ADD")
     nt.links.new(broad_s.outputs["Value"], sum1.inputs[0])
@@ -449,12 +449,21 @@ def build_stone_material():
     sum2 = node(nt, "ShaderNodeMath", (200, -1100), operation="ADD")
     nt.links.new(sum1.outputs["Value"], sum2.inputs[0])
     nt.links.new(chip_s.outputs["Value"], sum2.inputs[1])
+    # cracks cut into the surface a little
+    crack_disp = node(nt, "ShaderNodeMath", (200, -1350), operation="MULTIPLY")
+    set_input(crack_disp, 1, -0.0012)
+    nt.links.new(crack.outputs["Value"], crack_disp.inputs[0])
+    sum3 = node(nt, "ShaderNodeMath", (400, -1100), operation="ADD")
+    nt.links.new(sum2.outputs["Value"], sum3.inputs[0])
+    nt.links.new(crack_disp.outputs["Value"], sum3.inputs[1])
     disp = node(nt, "ShaderNodeDisplacement", (900, -700))
     set_input(disp, "Midlevel", 0.0)
     set_input(disp, "Scale", 1.0)
-    nt.links.new(sum2.outputs["Value"], disp.inputs["Height"])
+    nt.links.new(sum3.outputs["Value"], disp.inputs["Height"])
     nt.links.new(disp.outputs["Displacement"], out.inputs["Displacement"])
-    mat.displacement_method = "BOTH"
+    # bump only: the letter meshes are too sparse for true displacement, which
+    # turned their faces into facets. The bevel carries the edge shape.
+    mat.displacement_method = "BUMP"
     return mat
 
 
@@ -464,7 +473,7 @@ def measure(ob):
     R = O_DIAMETER / 2.0
     radii = []
     for v in ob.data.vertices:
-        if v.co.x > R * 1.05:
+        if v.co.x > R * 1.02:
             continue           # letters
         radii.append(math.hypot(v.co.x, v.co.z))
     r_out = max(radii)
@@ -530,7 +539,7 @@ def main():
     key = require("LIGHT.key")
     col = collection("Logo")
     t0 = time.time()
-    logo, radii, blocks, letters_width, font_path = build_logo(col)
+    logo, radii, letters_width, font_path = build_logo(col)
     mat = build_stone_material()
     logo.data.materials.clear()
     logo.data.materials.append(mat)
@@ -549,13 +558,13 @@ def main():
     print(f"==== {SCRIPT} runtime report ====")
     print(f"  scene objects: {len(scene.objects)}")
     print(f"  LOGO.stone: {len(logo.data.vertices)} verts, {len(logo.data.polygons)} faces base, "
-          f"{eval_counts[0]} verts, {eval_counts[1]} faces evaluated (bevel + simple subdivision level {logo.modifiers['Displacement density'].levels}), built in {build_time:.1f} s")
+          f"{eval_counts[0]} verts, {eval_counts[1]} faces evaluated (bevel), built in {build_time:.1f} s")
     print(f"  O outer diameter: {diameter:.4f} m")
-    print(f"  O ring stroke thickness: {stroke:.4f} m (inner radius {radii[0]:.4f} m, outer radius {radii[3]:.4f} m)")
-    print(f"  channel depth {CHANNEL_DEPTH * 1000:.1f} mm, meander blocks {blocks}, block height {BLOCK_HEIGHT * 1000:.1f} mm")
+    print(f"  O ring stroke thickness: {stroke:.4f} m (inner radius {radii[0]:.4f} m, outer radius {radii[1]:.4f} m)")
+    print(f"  ring source: {RING_FILE} / {RING_OBJECT}")
     print(f"  letters '{LETTERS}' width {letters_width:.4f} m, font {font_path}")
     print(f"  stone depth {DEPTH:.3f} m, whole mark {dims.x:.3f} x {dims.z:.3f} m, location {tuple(round(c, 3) for c in logo.location)}")
-    print(f"  stone cast: cool, blue grey. Base colour range (linear) 0.095 to 0.245")
+    print(f"  stone cast: cool, blue grey. Base colour range (linear) 0.24 to 0.54")
     for k, (path, dt) in results.items():
         print(f"  render {k}: {dt:.1f} s -> {path}")
     print("=================================")

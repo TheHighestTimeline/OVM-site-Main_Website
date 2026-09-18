@@ -47,6 +47,7 @@ EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into wor
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
 HEWN_SMALL = 0.0         # metres, mid frequency lumps
 VOXEL_RING = 0.0005      # remesh size for the ring, fine enough to keep the engraving
+RING_DEPTH_SCALE = 2.5   # the ring is scaled uniformly (so the engraving keeps the designer's proportions), then its depth is multiplied by this
 BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3
 
@@ -240,7 +241,7 @@ def ring_into(bm):
     r_out_src = max(radii)
     depth_src = max(zs) - min(zs)
     k = (O_DIAMETER / 2.0) / r_out_src
-    kz = DEPTH / depth_src
+    kz = k * RING_DEPTH_SCALE
     # source ring lies in XY with its axis on Z. Stand it up: axis to +Y, front face at y = 0.
     scale = Matrix.Diagonal((k, k, kz, 1.0))
     upright = Matrix.Rotation(math.radians(-90.0), 4, "X")     # z -> +y, y -> -z... then recentre
@@ -341,7 +342,9 @@ def build_logo(col):
 
 
 # --------------------------------------------------------------- material
-def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=1.0, grain_amt=1.0, ao=0.0):
+def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=1.0, grain_amt=1.0, ao=0.0,
+                         body_dark=(0.22, 0.225, 0.25), body_light=(0.50, 0.51, 0.54), rough_min=0.74, rough_max=0.92,
+                         coat=0.0, specular=0.25, ao_distance=0.02, relief=1.0):
     """Weathered grey stone after the references: grey mineral body, white calcite vein
     network, a few deep cracks with raised lips, pitting, cavity darkening.
 
@@ -354,7 +357,9 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     bsdf = node(nt, "ShaderNodeBsdfPrincipled", (1900, 0))
     nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     set_input(bsdf, "Metallic", 0.0)
-    set_input(bsdf, "Specular IOR Level", 0.25)
+    set_input(bsdf, "Specular IOR Level", specular)
+    set_input(bsdf, "Coat Weight", coat)
+    set_input(bsdf, "Coat Roughness", 0.12)
     set_input(bsdf, "Subsurface Weight", 0.04)
     set_input(bsdf, "Subsurface Radius", (0.010, 0.009, 0.008))
     set_input(bsdf, "Subsurface Scale", 0.02)
@@ -441,9 +446,9 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     body_fac = noise_tex(obj, 5.0, 7.0, 0.6, (-1000, 1100))
     ramp = node(nt, "ShaderNodeValToRGB", (-800, 1100))
     ramp.color_ramp.elements[0].position = 0.32
-    ramp.color_ramp.elements[0].color = (0.22, 0.225, 0.25, 1.0)
+    ramp.color_ramp.elements[0].color = (*body_dark, 1.0)
     ramp.color_ramp.elements[1].position = 0.70
-    ramp.color_ramp.elements[1].color = (0.50, 0.51, 0.54, 1.0)
+    ramp.color_ramp.elements[1].color = (*body_light, 1.0)
     nt.links.new(body_fac, ramp.inputs["Fac"])
     col = ramp.outputs["Color"]
 
@@ -466,7 +471,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
         ao_node = node(nt, "ShaderNodeAmbientOcclusion", (800, 1200))
         ao_node.samples = 8
         ao_node.only_local = True
-        set_input(ao_node, "Distance", 0.02)
+        set_input(ao_node, "Distance", ao_distance)
         ao_fac = map_range(ao_node.outputs["AO"], 0.0, 1.0, 1.0 - ao, 1.0, (1000, 1200))
         ao_mix = node(nt, "ShaderNodeMix", (1200, 1000), data_type="RGBA", blend_type="MULTIPLY")
         set_input(ao_mix, "Factor", 1.0)
@@ -479,7 +484,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     nt.links.new(col, bsdf.inputs["Base Color"])
 
     # roughness: matte body, recesses rougher, edges and veins a touch smoother
-    rough = map_range(cavity, 0.0, 1.0, 0.74, 0.92, (1000, 300))
+    rough = map_range(cavity, 0.0, 1.0, rough_min, rough_max, (1000, 300))
     rough = math_node("SUBTRACT", rough, math_node("MULTIPLY", edge, 0.12, (1000, 150)), (1200, 300))
     rough = math_node("SUBTRACT", rough, math_node("MULTIPLY", veins, 0.15, (1000, 0)), (1400, 300))
     rough = math_node("ADD", rough, math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 120.0, 2.0, 0.5, (1000, -200)), 0.5, (1200, -200)), 0.2, (1400, -200)), (1600, 300))
@@ -487,7 +492,7 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
 
     # displacement: facets and lumps, grain, veins slightly proud, cracks cut with lips, pits sunk
     facets = math_node("MULTIPLY", math_node("SUBTRACT", voronoi(obj, 11.0, "F1", (-1000, -1500)), 0.35, (-800, -1500)), 0.0, (-600, -1500))   # off, read as bubbly
-    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0018, (-600, -1700))
+    broad = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 6.0, 3.0, 0.5, (-1000, -1700)), 0.5, (-800, -1700)), 0.0018 * relief, (-600, -1700))
     grain = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 260.0, 2.0, 0.5, (-1000, -1900)), 0.5, (-800, -1900)), 0.0016, (-600, -1900))
     grain2 = math_node("MULTIPLY", math_node("SUBTRACT", noise_tex(obj, 80.0, 3.0, 0.6, (-1000, -2050)), 0.5, (-800, -2050)), 0.0022, (-600, -2050))
     grain = math_node("ADD", grain, grain2, (-500, -1950))
@@ -598,7 +603,10 @@ def main():
     t0 = time.time()
     logo, radii, letters_width, font_path = build_logo(col)
     mat = build_stone_material("MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1.0, chips=0.15, grain_amt=1.0, ao=0.25)
-    ring_mat = build_stone_material("MAT.stone ring", cracks=0.2, veins_amt=0.35, pits_amt=0.25, chips=0.0, grain_amt=0.5, ao=0.7)
+    # the ring after the client's design render: polished dark grey face, all the depth in the recesses
+    ring_mat = build_stone_material("MAT.stone ring", cracks=0.0, veins_amt=0.0, pits_amt=0.0, chips=0.0, grain_amt=0.06, ao=0.9,
+                                    body_dark=(0.12, 0.125, 0.14), body_light=(0.30, 0.31, 0.33), rough_min=0.26, rough_max=0.55,
+                                    coat=0.35, specular=0.5, ao_distance=0.03, relief=0.0)
     logo.data.materials.clear()
     logo.data.materials.append(mat)
     logo.data.materials.append(ring_mat)

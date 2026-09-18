@@ -24,11 +24,11 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -1.05
+STACK_X = -0.86
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.075          # nested like real stacked caps, brims clear of each other
-STACK_YAW_STEP = 2.5           # degrees, each hat turned a little further than the one below
+STACK_YAW_STEP = 1.5           # degrees, each hat turned a little further than the one below
 STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
 STACK_XY_JITTER = 0.006        # metres
 LOGO_LOCATION = Vector((-0.50, -0.05, 0.30))  # centre of the O, in a row beside the stack, centred on its height

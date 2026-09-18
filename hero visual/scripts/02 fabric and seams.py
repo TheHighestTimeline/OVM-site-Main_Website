@@ -44,8 +44,8 @@ THREAD_HEIGHT = 0.00042
 THREAD_LIFT = 0.00060                   # centre of the thread above the fabric
 SEAM_ROW_OFFSET = 0.0027                # two rows straddle each seam
 SEAM_Z_START = 0.014                    # above the band
-SEAM_TOP_STOP = 0.024                   # stop short of the button
-BRIM_ROWS = [0.004 + 0.0042 * i for i in range(6)]  # six topstitch rows in from the brim edge, like the reference
+SEAM_TOP_STOP = 0.008                   # stop just short of the button
+BRIM_ROWS = [0.005 + 0.0055 * i for i in range(4)]  # four topstitch rows in from the brim edge
 JITTER_SPACING = 0.10                   # fraction of stitch length
 JITTER_HEIGHT = 0.12
 JITTER_SIDE = 0.00012                   # metres
@@ -520,15 +520,28 @@ def build_seam_stitches(hat, col, material):
     rows = 0
     paths = seam_paths(hat)
     if paths is not None:
-        # the purchased cap does not mark the seam between the two front panels.
-        # Add it: a straight run up the centre front from the band to near the button.
-        has_front = any(all(abs(p.x) < 0.012 and p.y < -0.05 for p, _ in path) for path in paths if len(path) > 2)
-        if not has_front:
-            front = []
-            for k in range(0, 40):
-                z = SEAM_Z_START + (top_z - SEAM_TOP_STOP - SEAM_Z_START) * k / 39.0
-                front.append((Vector((0.0, -0.30, z)), Vector((0.0, -1.0, 0.0))))
-            paths.append(front)
+        # no stitching up the centre front: drop any path that runs there
+        paths = [path for path in paths if not all(abs(p.x) < 0.012 and p.y < -0.02 for p, _ in path)]
+        # the model's marked seams on the two front side panels start part way up.
+        # Extend any tall seam that begins above the band down to the band.
+        me = hat.data
+        band = [v.co for v in me.vertices if math.hypot(v.co.x, v.co.y) < 0.155 and v.co.z < 0.03]
+        cx = sum(c.x for c in band) / len(band)
+        cy = sum(c.y for c in band) / len(band)
+        rb = sum(math.hypot(c.x - cx, c.y - cy) for c in band) / len(band)
+        extended = []
+        for path in paths:
+            zs = [p.z for p, _ in path]
+            if max(zs) > 0.15 and min(zs) > 0.03:
+                path = sorted(path, key=lambda pn: pn[0].z)
+                p0, n0 = path[0]
+                ang = math.atan2(p0.x - cx, -(p0.y - cy))
+                base = Vector((cx + rb * math.sin(ang), cy - rb * math.cos(ang), SEAM_Z_START))
+                steps = max(2, int((p0 - base).length / 0.01))
+                prefix = [(base.lerp(p0, k / steps), n0) for k in range(steps)]
+                path = prefix + path
+            extended.append(path)
+        paths = extended
     if paths is None:
         seam_verts = group_vertices(hat, "seam")
         seams = {}

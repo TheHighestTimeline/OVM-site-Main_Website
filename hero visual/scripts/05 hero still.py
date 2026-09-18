@@ -199,8 +199,10 @@ def set_camera(cam, hats, logo):
     centre_x = (lo.x + hi.x) / 2.0
     near_y = lo.y
     distance = width * 85.0 / cam.data.sensor_width
-    cam.location = Vector((centre_x, near_y - distance, CAMERA_LOCATION.z * distance / 4.6))
-    target = Vector((centre_x, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0))
+    # eye level with the row, so the stack stands straight and the mark faces the viewer
+    mid_z = (lo.z + hi.z) / 2.0
+    cam.location = Vector((centre_x, near_y - distance, mid_z + 0.06))
+    target = Vector((centre_x, (lo.y + hi.y) / 2.0, mid_z))
     look_at(cam, target)
     cam.data.lens = 85.0
     cam.data.dof.use_dof = True
@@ -219,13 +221,13 @@ def relight(rig_col, hats, logo):
     key.location = centre + Vector((-2.2, -2.6, 2.4))
     look_at(key, centre)
     key.data.size = 1.6
-    key.data.energy = 170.0
+    key.data.energy = 420.0
     key.data.color = (1.0, 0.98, 0.95)
     # fill, low front right, cool, very soft and weak
     fill.location = centre + Vector((2.6, -2.4, 0.3))
     look_at(fill, centre)
     fill.data.size = 3.0
-    fill.data.energy = 22.0
+    fill.data.energy = 60.0
     fill.data.color = (0.90, 0.94, 1.0)
     # rim, a long strip behind and above, the thing that separates black from black
     rim.location = centre + Vector((0.6, 2.2, 1.9))
@@ -233,7 +235,7 @@ def relight(rig_col, hats, logo):
     rim.data.shape = "RECTANGLE"
     rim.data.size = 3.6
     rim.data.size_y = 0.35
-    rim.data.energy = 1100.0
+    rim.data.energy = 2400.0
     rim.data.color = (1.0, 1.0, 1.0)
     # founder light, a warm spot on the bottom hat, off for the still
     remove_object("LIGHT.founder")

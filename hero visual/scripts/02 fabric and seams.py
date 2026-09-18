@@ -521,7 +521,10 @@ def build_seam_stitches(hat, col, material):
     paths = seam_paths(hat)
     if paths is not None:
         # no stitching up the centre front: drop any path that runs there
-        paths = [path for path in paths if not all(abs(p.x) < 0.012 and p.y < -0.02 for p, _ in path)]
+        def is_centre_front(path):
+            xs = sorted(abs(p.x) for p, _ in path)
+            return xs[len(xs) // 2] < 0.012 and min(p.y for p, _ in path) < -0.05
+        paths = [path for path in paths if not is_centre_front(path)]
         # the model's marked seams on the two front side panels start part way up.
         # Extend any tall seam that begins above the band down to the band.
         me = hat.data

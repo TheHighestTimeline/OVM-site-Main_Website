@@ -41,7 +41,9 @@ SMALL_CAPS_SCALE = 0.64      # small capitals as a fraction of the capitals, mea
 LETTER_BASELINE = -0.45      # baseline below the O centre, as a fraction of the O diameter
 LETTER_GAP = 0.0             # the n starts right at the ring's edge
 LETTER_TRACKING = 1.0
-KERNING_BY_INDEX = {2: -0.27, 3: -0.24}    # V into the e, the i tucked under the V's right arm. Media spacing is left alone.   # pull these letters toward the one before them, in em
+# Per glyph horizontal offsets in em, applied to that glyph and everything after it.
+# Blender's own kerning field barely moves glyphs, so placement is done by hand.
+OFFSETS_EM = {2: -0.09, 3: -0.09}   # V pulled over the e, i pulled under the V   # pull these letters toward the one before them, in em
 VOXEL_LETTERS = 0.0009   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
 EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
@@ -275,56 +277,76 @@ def load_font():
     return bpy.data.fonts.get("Bfont Regular") or bpy.data.fonts[0], "Blender built in font"
 
 
-def letters_into(bm, r_out):
-    """Extruded neVibeMedia with small caps to the right of the ring. Returns (width, font path)."""
-    font, font_path = load_font()
-    curve = bpy.data.curves.new("TMP.logo letters", "FONT")
-    curve.body = LETTERS
+def glyph_mesh(text, font, extrude, small_caps_flags):
+    """Flat or extruded mesh of a string with per character small caps, at size 1."""
+    curve = bpy.data.curves.new("TMP.glyph", "FONT")
+    curve.body = text
     curve.font = font
     curve.size = 1.0
     curve.space_character = LETTER_TRACKING
     curve.small_caps_scale = SMALL_CAPS_SCALE
+    curve.extrude = extrude
     curve.fill_mode = "BOTH"
     curve.align_x = "LEFT"
     curve.align_y = "BOTTOM_BASELINE"
-    ob = bpy.data.objects.new("TMP.logo letters", curve)
+    ob = bpy.data.objects.new("TMP.glyph", curve)
     bpy.context.scene.collection.objects.link(ob)
     bpy.context.view_layer.update()
-    for i, ch in enumerate(LETTERS):
-        curve.body_format[i].use_small_caps = ch.islower()
-        curve.body_format[i].kerning = KERNING_BY_INDEX.get(i, 0.0)
-    # pass one, flat, to measure the capital height at size 1
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    flat = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
-    measured_cap = max(v.co.y for v in flat.vertices)
-    bpy.data.meshes.remove(flat)
-    k = (O_DIAMETER * LETTER_CAP_HEIGHT) / measured_cap
-    # pass two, extruded so that after scaling by k the letters are exactly DEPTH thick
-    curve.extrude = DEPTH / (2.0 * k)
+    for i, flag in enumerate(small_caps_flags):
+        curve.body_format[i].use_small_caps = flag
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     me = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))
     bpy.data.objects.remove(ob, do_unlink=True)
     bpy.data.curves.remove(curve)
+    return me
+
+
+def letters_into(bm, r_out):
+    """Extruded neVibeMedia with small caps, each glyph placed by hand. Returns (width, font path)."""
+    font, font_path = load_font()
+    flags = [ch.islower() for ch in LETTERS]
+    # advances: the pen position after each prefix of the word, from flat meshes
+    advances = [0.0]
+    cap = None
+    for n in range(1, len(LETTERS) + 1):
+        me = glyph_mesh(LETTERS[:n], font, 0.0, flags[:n])
+        xs = [v.co.x for v in me.vertices]
+        ys = [v.co.y for v in me.vertices]
+        if cap is None or max(ys) > cap:
+            cap = max(ys)
+        advances.append(max(xs))
+        bpy.data.meshes.remove(me)
+    k = (O_DIAMETER * LETTER_CAP_HEIGHT) / cap
+    extrude = DEPTH / (2.0 * k)
+    to_upright = Matrix.Rotation(math.radians(90.0), 4, "X")
+    flip_depth = Matrix.Scale(-1.0, 4, Vector((0.0, 1.0, 0.0)))
+    z_base = LETTER_BASELINE * O_DIAMETER
+    shift = 0.0
+    right_edge = 0.0
+    x_start = r_out + LETTER_GAP * O_DIAMETER
+    for i, ch in enumerate(LETTERS):
+        shift += OFFSETS_EM.get(i, 0.0)
+        me = glyph_mesh(ch, font, extrude, [flags[i]])
+        # the single glyph mesh already includes its own left bearing from the origin,
+        # so placing its origin at the word's pen position reproduces the word layout
+        pen_x = advances[i] + shift
+        place = Matrix.Translation((x_start + pen_x * k, DEPTH / 2.0, z_base))
+        xform = place @ flip_depth @ to_upright @ Matrix.Scale(k, 4)
+        me.transform(xform)
+        for p in me.polygons:
+            p.material_index = 0
+        right_edge = max(right_edge, max(v.co.x for v in me.vertices))
+        dense = remesh(me, VOXEL_LETTERS)
+        dense = hew(dense, EROSION_SMOOTH, HEWN_LARGE, HEWN_SMALL, 11.0 + i)
+        for p in dense.polygons:
+            p.material_index = 0
+            p.use_smooth = True
+        bm.from_mesh(dense)
+        bpy.data.meshes.remove(dense)
     if font.users == 0 and font.name != "Bfont Regular":
         bpy.data.fonts.remove(font)
-
-    xs = [v.co.x for v in me.vertices]
-    to_upright = Matrix.Rotation(math.radians(90.0), 4, "X")          # y -> z, extrusion z -> -y
-    flip_depth = Matrix.Scale(-1.0, 4, Vector((0.0, 1.0, 0.0)))        # extrusion toward +y
-    x_start = r_out + LETTER_GAP * O_DIAMETER - min(xs) * k
-    z_base = LETTER_BASELINE * O_DIAMETER
-    place = Matrix.Translation((x_start, DEPTH / 2.0, z_base))
-    xform = place @ flip_depth @ to_upright @ Matrix.Scale(k, 4)
-    me.transform(xform)
-    me = remesh(me, VOXEL_LETTERS)
-    me = hew(me, EROSION_SMOOTH, HEWN_LARGE, HEWN_SMALL, 11.0)
-    for p in me.polygons:
-        p.material_index = 0
-        p.use_smooth = True
-    bm.from_mesh(me)
-    width = (max(xs) - min(xs)) * k
-    bpy.data.meshes.remove(me)
+    width = right_edge - x_start
     return width, font_path
 
 

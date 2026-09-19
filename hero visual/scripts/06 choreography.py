@@ -293,13 +293,7 @@ def main():
     founder_light.location = target + Vector((-0.9, -1.6, 1.1))
     look_at(founder_light, target)
 
-    # smooth interpolation everywhere
-    for ob in hats + [pulse, founder_light]:
-        for ad in (ob.animation_data, getattr(ob.data, "animation_data", None)):
-            if ad and ad.action:
-                for fc in ad.action.fcurves:
-                    for kp in fc.keyframe_points:
-                        kp.interpolation = "BEZIER"
+    # keyframes are inserted per frame, so interpolation between them hardly matters. Blender's default Bezier is fine.
 
     # key frame renders
     renders = []

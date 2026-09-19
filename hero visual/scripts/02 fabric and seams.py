@@ -589,39 +589,47 @@ def build_seam_stitches(hat, col, material):
                 row_n.append(n)
             placed += stitches.add_row(row, snap, normals=row_n)
             rows += 1
-    # brim topstitch rows, measured in from the brim edge. The outline comes from
-    # the cap's own marked brim seam, walked in order, and each row is inset
-    # along the outline's in plane normal so it follows the real shape.
+    # brim topstitch rows, measured in from the brim edge. The outline is taken
+    # from the evaluated mesh itself, one point per degree: the farthest surface
+    # point from the crown axis in each angular bin. Rows are inset along the
+    # outline's in plane normal and clipped where they would run into the crown,
+    # so each row rides the edge and ends at the crown junction.
     brim_rows = 0
-    outline_paths = seam_paths(hat, "brim edge")
-    if outline_paths:
-        outline = max(outline_paths, key=lambda p: sum((b[0] - a[0]).length for a, b in zip(p, p[1:])))
-        pts = [p for p, _ in outline]
-        # drop points sitting on the crown itself
-        pts = [p for p in pts if math.hypot(p.x, p.y) > 0.150]
-    else:
-        edge = group_vertices(hat, "brim edge")
-        pts = sorted((v.co.copy() for v in edge), key=lambda c: math.atan2(c.x, -c.y))
-    if len(pts) > 3:
-        brim_top = max(p.z for p in pts) + 0.05
-        # the crown footprint at the brim root, per angle, so rows can be clipped where the brim runs out
-        me = hat.data
-        root = [v.co for v in me.vertices if v.co.z < 0.02 and 0.10 < math.hypot(v.co.x, v.co.y) < 0.165]
-        def crown_radius_at(ang):
-            near = [math.hypot(c.x, c.y) for c in root if abs((math.atan2(c.x, -c.y) - ang + math.pi) % (2 * math.pi) - math.pi) < 0.12]
-            return max(near) if near else 0.150
-        # outer curve only: the front facing points, dropped where the brim is nearly zero width
-        outer = []
-        for p in pts:
-            ang = math.atan2(p.x, -p.y)
-            if abs(ang) < math.radians(95) and math.hypot(p.x, p.y) - crown_radius_at(ang) > 0.004:
-                outer.append(p)
-        outer.sort(key=lambda c: math.atan2(c.x, -c.y))
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    ev = hat.evaluated_get(depsgraph).to_mesh()
+    bins = {}
+    for v in ev.vertices:
+        c = v.co
+        r = math.hypot(c.x, c.y)
+        if c.y > 0.0 or r < 0.12 or c.z > 0.06:
+            continue
+        b = int(round(math.degrees(math.atan2(c.x, -c.y))))
+        if b not in bins or r > math.hypot(bins[b].x, bins[b].y):
+            bins[b] = c.copy()
+    hat.evaluated_get(depsgraph).to_mesh_clear()
+    axis_hits = {}
+    def crown_radius_at(ang):
+        """Radius of the crown surface just above the brim, by a horizontal ray cast toward the axis."""
+        b = int(round(math.degrees(ang) / 2.0))
+        if b not in axis_hits:
+            d = Vector((math.sin(ang), -math.cos(ang), 0.0))
+            origin = Vector((0.0, 0.0, 0.03)) + d * 0.6
+            hit, loc, _, _ = snap.ob.ray_cast(origin, -d, distance=0.6)
+            axis_hits[b] = math.hypot(loc.x, loc.y) if hit else 0.150
+        return axis_hits[b]
+    outline = []
+    for b in sorted(bins):
+        p = bins[b]
+        ang = math.atan2(p.x, -p.y)
+        if math.hypot(p.x, p.y) - crown_radius_at(ang) > 0.012:
+            outline.append(p)
+    if len(outline) > 6:
+        brim_top = max(p.z for p in outline) + 0.05
         for inset in BRIM_ROWS:
             row = []
-            for i, p in enumerate(outer):
-                nxt = outer[min(i + 1, len(outer) - 1)]
-                prv = outer[max(i - 1, 0)]
+            for i, p in enumerate(outline):
+                nxt = outline[min(i + 2, len(outline) - 1)]
+                prv = outline[max(i - 2, 0)]
                 along = Vector((nxt.x - prv.x, nxt.y - prv.y, 0.0))
                 if along.length < 1e-9:
                     continue
@@ -630,8 +638,7 @@ def build_seam_stitches(hat, col, material):
                 if normal.dot(Vector((-p.x, -p.y, 0.0))) < 0.0:
                     normal = -normal          # point toward the crown axis
                 q = p + normal * inset
-                # clip: the row stops where the brim is not wide enough for this inset
-                if math.hypot(q.x, q.y) - crown_radius_at(math.atan2(q.x, -q.y)) < 0.005:
+                if math.hypot(q.x, q.y) - crown_radius_at(math.atan2(q.x, -q.y)) < 0.006:
                     continue
                 row.append(q)
             if len(row) < 4:
@@ -640,7 +647,7 @@ def build_seam_stitches(hat, col, material):
             surface = []
             for p in dense:
                 r = snap.along(Vector((p.x, p.y, brim_top)), (0.0, 0.0, -1.0), back=0.0)
-                if r and r[1].z > 0.35 and math.hypot(r[0].x, r[0].y) > 0.150:
+                if r and r[1].z > 0.35 and math.hypot(r[0].x, r[0].y) - crown_radius_at(math.atan2(r[0].x, -r[0].y)) > 0.004:
                     surface.append(r[0])
             if len(surface) > 3:
                 placed += stitches.add_row(surface, snap, snap_dir=(0.0, 0.0, -1.0))

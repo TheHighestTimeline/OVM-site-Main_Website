@@ -9,6 +9,7 @@ Never a video, never a baked background.
 Desktop set: FULL_WIDTH wide, every frame.
 Mobile set: MOBILE_WIDTH wide, every MOBILE_STEP th frame, into frames/mobile.
 
+Runs only when HATHERO_RENDER_SEQUENCE=1, so the build runner skips it.
 Before rendering, prints an estimate of frame count, time and payload, and
 stops there if HATHERO_ESTIMATE_ONLY=1. Renders one frame first to time
 it and then extrapolates, so the estimate is measured, not guessed.
@@ -87,6 +88,9 @@ def to_webp(png_path, webp_path):
 
 
 def main():
+    if os.environ.get("HATHERO_RENDER_SEQUENCE") != "1":
+        print(f"[{SCRIPT}] skipped. Set HATHERO_RENDER_SEQUENCE=1 to render the frame sequence (hours of GPU time).")
+        return
     work = workdir()
     scene = bpy.context.scene
     if scene.frame_end <= 1 or not any(o.animation_data for o in scene.objects if o.name.startswith("HAT.")):

@@ -621,7 +621,8 @@ def build_seam_stitches(hat, col, material):
     for b in sorted(bins):
         p = bins[b]
         ang = math.atan2(p.x, -p.y)
-        if math.hypot(p.x, p.y) - crown_radius_at(ang) > 0.012:
+        # skip the brim tips, where the edge hooks back into the crown and inset rows would fan
+        if abs(ang) < math.radians(72) and math.hypot(p.x, p.y) - crown_radius_at(ang) > 0.012:
             outline.append(p)
     if len(outline) > 6:
         brim_top = max(p.z for p in outline) + 0.05

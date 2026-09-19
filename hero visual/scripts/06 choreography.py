@@ -37,6 +37,8 @@ LAUNCH_EVERY = 18     # hat N+1 launches when hat N is near its apex
 REVEAL = 16           # founder light ramp after the last absorption
 DISSOLVE_FRAMES = 6
 APEX_AT = 0.45        # fraction of the flight where the apex sits
+SEPARATE_AT = 0.16    # fraction of the flight spent lifting clear of the stack with no rotation
+SEPARATE_LIFT = Vector((0.0, -0.10, 0.22))   # straight up and a little forward, more than one crown height
 
 # ---------------------------------------------------------------- the arc
 APEX_OFFSET = Vector((0.22, -0.50, 0.32))   # from the launch point: right, toward camera, up. Must stay in frame.
@@ -182,20 +184,27 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
 
     for f in range(start, end + 1):
         t = (f - start) / FLIGHT
-        if t <= APEX_AT:
-            u = t / APEX_AT
-            # climb: launch to apex, gentle curve toward camera
-            c1 = launch_pos + Vector((0.0, 0.0, 0.25))
+        clear_pos = launch_pos + SEPARATE_LIFT
+        if t <= SEPARATE_AT:
+            # separation: lift straight off the stack, no rotation, until fully clear
+            u = t / SEPARATE_AT
+            pos = launch_pos.lerp(clear_pos, u * u * (3.0 - 2.0 * u) * 0.5 + u * 0.5)   # eases out of rest, keeps speed
+            scale = 1.0
+            rot = Euler((0.0, 0.0, base_yaw), "XYZ")
+            dissolve = 0.0
+        elif t <= APEX_AT:
+            u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
+            # climb: clear point to apex, gentle curve toward camera
+            c1 = clear_pos + Vector((0.0, -0.05, 0.15))
             c2 = apex + Vector((0.0, 0.10, 0.05))
-            pos = bezier(launch_pos, c1, c2, apex, smoothstep(u))
+            pos = bezier(clear_pos, c1, c2, apex, smoothstep(u))
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)
-            # spin that unwinds to zero at the apex. smoothstep flattens at u=1, so the
-            # hat settles square to camera for a couple of frames rather than snapping.
+            # spin starts now, and unwinds to zero at the apex so the hat settles square
             cx, cz = CLIMB_SPIN[key]
-            remaining = 1.0 - smoothstep(u)
-            rot = Euler((tilt * smoothstep(u) - cx * 2.0 * math.pi * remaining,
+            spun = math.sin(u * math.pi)          # zero at both ends, so it starts and stops smoothly
+            rot = Euler((tilt * smoothstep(u) - cx * 2.0 * math.pi * spun,
                          0.0,
-                         base_yaw * remaining - cz * 2.0 * math.pi * remaining), "XYZ")
+                         base_yaw * (1.0 - smoothstep(u)) - cz * 2.0 * math.pi * spun), "XYZ")
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)

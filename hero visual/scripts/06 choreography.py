@@ -38,12 +38,12 @@ REVEAL = 16           # founder light ramp after the last absorption
 DISSOLVE_FRAMES = 6
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.16    # fraction of the flight spent lifting clear of the stack with no rotation
-SEPARATE_LIFT = Vector((0.0, -0.10, 0.22))   # straight up and a little forward, more than one crown height
+SEPARATE_LIFT = Vector((0.0, -0.16, 0.16))   # up and forward, clear of the crown below
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.22, -0.50, 0.32))   # from the launch point: right, toward camera, up. Must stay in frame.
+APEX_OFFSET = Vector((0.30, -0.95, 0.12))   # from the launch point: right, well toward camera, only a little up. The arc is in depth, not height.
 ENTRY_INSET = 0.02                          # how far past the O's left edge the hat travels before it is gone
-APEX_SCALE = 1.12
+APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
 CONTACT_SCALE = 0.42                        # hat width 0.28 m times this is about 60 percent of the O's 0.20 m
 APEX_TILT_DEG = 7.0
 LATERAL_JITTER = (0.00, 0.03, -0.02, 0.04)  # metres, per hat, same path not identical path
@@ -208,8 +208,8 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)
-            c1 = apex + Vector((0.15, -0.05, 0.05))
-            c2 = entry + Vector((-0.25, -0.20, 0.15))
+            c1 = apex + Vector((0.35, -0.05, 0.02))
+            c2 = entry + Vector((-0.35, -0.30, 0.0))   # comes across at logo height, from in front
             pos = bezier(apex, c1, c2, entry, smoothstep(u))
             # shrink hard, most of it in the middle of the descent
             scale = APEX_SCALE + (CONTACT_SCALE - APEX_SCALE) * ease_in(u, 1.4)

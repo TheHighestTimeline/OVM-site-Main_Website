@@ -31,7 +31,7 @@ from mathutils import Vector, Matrix
 SCRIPT = "04 logo stone"
 
 # ---------------------------------------------------------------- parameters
-O_DIAMETER = 0.20            # outer diameter of the ring, metres. The mark is about 7 times this wide.
+O_DIAMETER = 0.40            # outer diameter of the ring, metres. The mark is about 6 times this wide.
 DEPTH = 0.11                 # stone thickness along the view axis, ring and letters alike
 RING_FILE = os.path.join("reference", "OVM ring.blend")
 RING_OBJECT = "MayanRingDebossedBoth"

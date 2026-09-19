@@ -38,13 +38,13 @@ REVEAL = 16           # founder light ramp after the last absorption
 DISSOLVE_FRAMES = 6
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.16    # fraction of the flight spent lifting clear of the stack with no rotation
-SEPARATE_LIFT = Vector((0.0, -0.16, 0.16))   # up and forward, clear of the crown below
+SEPARATE_LIFT = Vector((0.0, -0.45, 0.14))   # up and clearly forward of the stack, so the spin happens in front of it
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.30, -0.95, 0.12))   # from the launch point: right, well toward camera, only a little up. The arc is in depth, not height.
-ENTRY_INSET = 0.02                          # how far past the O's left edge the hat travels before it is gone
+APEX_OFFSET = Vector((0.45, -1.15, 0.20))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
+ENTRY_INSET = 0.04                          # how far past the O's left edge the hat travels before it is gone
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
-CONTACT_SCALE = 0.42                        # hat width 0.28 m times this is about 60 percent of the O's 0.20 m
+CONTACT_SCALE = 0.55                        # hat width 0.28 m times this is about 40 percent of the O's 0.40 m
 APEX_TILT_DEG = 7.0
 LATERAL_JITTER = (0.00, 0.03, -0.02, 0.04)  # metres, per hat, same path not identical path
 APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
@@ -263,7 +263,7 @@ def main():
     # the O's left entry point, mid depth of the ring
     o_centre = logo.matrix_world.translation
     ring_depth = logo.dimensions.y
-    entry = Vector((o_centre.x - 0.10 - ENTRY_INSET, o_centre.y + ring_depth * 0.5, o_centre.z))
+    entry = Vector((o_centre.x - 0.20 - ENTRY_INSET, o_centre.y + ring_depth * 0.5, o_centre.z))
 
     # rest state and stack positions come from 05
     rest = {h: (h.location.copy(), h.rotation_euler.copy(), h.scale.copy()) for h in hats}

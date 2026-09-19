@@ -24,14 +24,14 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -1.45
+STACK_X = -2.35
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.075          # nested like real stacked caps, brims clear of each other
 STACK_YAW_STEP = 1.5           # degrees, each hat turned a little further than the one below
 STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
 STACK_XY_JITTER = 0.006        # metres
-LOGO_LOCATION = Vector((-0.50, -0.05, 0.30))  # centre of the O, in a row beside the stack, centred on its height
+LOGO_LOCATION = Vector((-0.30, -0.05, 0.30))  # centre of the O, in a row beside the stack, centred on its height
 ARC_HEADROOM = 0.18            # metres of air above the stack so the flight apex stays in frame
 FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))

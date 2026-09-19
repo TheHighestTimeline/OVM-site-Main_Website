@@ -35,14 +35,15 @@ INTRO_HOLD = 8
 FLIGHT = 40           # frames per hat
 LAUNCH_EVERY = 18     # hat N+1 launches when hat N is near its apex
 REVEAL = 16           # founder light ramp after the last absorption
-DISSOLVE_FRAMES = 6
+DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.16    # fraction of the flight spent lifting clear of the stack with no rotation
 SEPARATE_LIFT = Vector((0.0, -0.45, 0.14))   # up and clearly forward of the stack, so the spin happens in front of it
 
 # ---------------------------------------------------------------- the arc
 APEX_OFFSET = Vector((0.45, -1.15, 0.20))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
-ENTRY_INSET = 0.04                          # how far past the O's left edge the hat travels before it is gone
+O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
+ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
 CONTACT_SCALE = 0.55                        # hat width 0.28 m times this is about 40 percent of the O's 0.40 m
 APEX_TILT_DEG = 7.0
@@ -218,7 +219,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             rot = Euler((tilt + turns_x * 2.0 * math.pi * spin + wob,
                          turns_y * 2.0 * math.pi * spin + wob * 0.5,
                          turns_z * 2.0 * math.pi * spin), "XYZ")
-            dissolve = smoothstep((f - (end - DISSOLVE_FRAMES)) / DISSOLVE_FRAMES) if f > end - DISSOLVE_FRAMES else 0.0
+            dissolve = smoothstep((f - (end - DISSOLVE_FRAMES)) / (DISSOLVE_FRAMES - 1)) if f > end - DISSOLVE_FRAMES else 0.0
         hat.location = pos
         hat.rotation_euler = rot
         hat.scale = (scale, scale, scale)
@@ -263,7 +264,8 @@ def main():
     # the O's left entry point, mid depth of the ring
     o_centre = logo.matrix_world.translation
     ring_depth = logo.dimensions.y
-    entry = Vector((o_centre.x - 0.20 - ENTRY_INSET, o_centre.y + ring_depth * 0.5, o_centre.z))
+    o_radius = O_RADIUS_HINT
+    entry = Vector((o_centre.x - o_radius - ENTRY_INSET, o_centre.y + ring_depth * 0.5, o_centre.z))
 
     # rest state and stack positions come from 05
     rest = {h: (h.location.copy(), h.rotation_euler.copy(), h.scale.copy()) for h in hats}

@@ -32,7 +32,7 @@ SCRIPT = "04 logo stone"
 
 # ---------------------------------------------------------------- parameters
 O_DIAMETER = 0.40            # outer diameter of the ring, metres. The mark is about 6 times this wide.
-DEPTH = 0.11                 # stone thickness along the view axis, ring and letters alike
+DEPTH = 0.22                 # stone thickness along the view axis, ring and letters alike
 RING_FILE = os.path.join("reference", "OVM ring.blend")
 RING_OBJECT = "MayanRingDebossedBoth"
 LETTERS = "neVibeMedia"
@@ -247,7 +247,7 @@ def ring_into(bm):
     r_out_src = (max(xs) - min(xs)) / 2.0
     depth_src = max(zs) - min(zs)
     k = (O_DIAMETER / 2.0) / r_out_src
-    kz = k * RING_DEPTH_SCALE
+    kz = DEPTH / depth_src        # the ring is as deep as the letters, so a hat can vanish into its side
     # source ring lies in XY with its axis on Z. Stand it up: axis to +Y, front face at y = 0.
     scale = Matrix.Diagonal((k, k, kz, 1.0))
     upright = Matrix.Rotation(math.radians(-90.0), 4, "X")     # z -> +y, y -> -z... then recentre

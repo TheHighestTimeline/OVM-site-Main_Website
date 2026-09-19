@@ -24,7 +24,7 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -0.86
+STACK_X = -1.45
 STACK_Y = 0.05
 STACK_BASE_Z = 0.0
 STACK_SPACING = 0.075          # nested like real stacked caps, brims clear of each other

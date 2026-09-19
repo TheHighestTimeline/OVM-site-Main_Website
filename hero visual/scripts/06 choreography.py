@@ -39,7 +39,7 @@ DISSOLVE_FRAMES = 6
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.16, -0.42, 0.30))   # from the launch point: right, toward camera, up. Must stay in frame.
+APEX_OFFSET = Vector((0.22, -0.50, 0.32))   # from the launch point: right, toward camera, up. Must stay in frame.
 ENTRY_INSET = 0.02                          # how far past the O's left edge the hat travels before it is gone
 APEX_SCALE = 1.12
 CONTACT_SCALE = 0.42                        # hat width 0.28 m times this is about 60 percent of the O's 0.20 m

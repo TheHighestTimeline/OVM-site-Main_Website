@@ -436,12 +436,13 @@ def build_stone_material(name="MAT.stone", cracks=1.0, veins_amt=1.0, pits_amt=1
     veins = math_node("MULTIPLY", veins, veins_amt, (-300, 500))
 
     # deep cracks with raised lips, sparse
-    crack_d = voronoi(wobbled, 5.5, "DISTANCE_TO_EDGE", (-1000, 0))
-    crack_core = map_range(crack_d, 0.0095, 0.0, 0.0, 1.0, (-800, 0))
+    crack_d = voronoi(wobbled, 4.5, "DISTANCE_TO_EDGE", (-1000, 0))
+    crack_core = map_range(crack_d, 0.0085, 0.0, 0.0, 1.0, (-800, 0))
     crack_lip = math_node("MULTIPLY", map_range(crack_d, 0.013, 0.024, 1.0, 0.0, (-800, -150)),
                           map_range(crack_d, 0.0, 0.013, 0.0, 1.0, (-800, -300)), (-600, -200))
     # gate at letter scale, not word scale, so every letter gets a similar share of cracks
-    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, -200)), 0.24, (-800, -420))
+    # nearly open gate: every letter carries cracks, as in the official logo. Density comes from the voronoi scale.
+    crack_gate = math_node("GREATER_THAN", noise_tex(obj, 7.0, 2.0, 0.5, (-1000, -200)), 0.10, (-800, -420))
     away_from_edge = map_range(edge, 0.0, 0.7, 1.0, 0.0, (-600, -500))
     crack = math_node("MULTIPLY", math_node("MULTIPLY", crack_core, crack_gate, (-400, 0)), cracks, (-300, 0))
     crack = math_node("MULTIPLY", crack, away_from_edge, (-200, 0))
@@ -604,6 +605,15 @@ def render_set(scene, cam, logo, key):
     look_at(key, o_centre)
     key.data.energy = 60.0
     results["O chisel"] = render_preview(scene, "04 logo O chisel")
+    # the word Media, straight on, to check every letter carries cracks
+    m_target = Vector((lo + width * 0.80, centre.y, centre.z - O_DIAMETER * 0.12))
+    cam.location = m_target + Vector((0.0, -O_DIAMETER * 3.4, 0.0))
+    look_at(cam, m_target)
+    cam.data.dof.focus_distance = (m_target - cam.location).length
+    key.location = m_target + Vector((-0.6, -0.7, 0.7))
+    look_at(key, m_target)
+    key.data.energy = 70.0
+    results["Media"] = render_preview(scene, "04 logo Media crop")
     for name, (loc, rot, e) in saved_lights.items():
         l = bpy.data.objects[name]
         l.location, l.rotation_euler, l.data.energy = loc, rot, e

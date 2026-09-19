@@ -41,7 +41,7 @@ SMALL_CAPS_SCALE = 0.64      # small capitals as a fraction of the capitals, mea
 LETTER_BASELINE = -0.45      # baseline below the O centre, as a fraction of the O diameter
 LETTER_GAP = 0.03            # small clear gap after the ring, measured from the official close up
 LETTER_TRACKING = 1.0
-KERNING = {"V": -0.02}   # pull these letters toward the one before them, in em
+KERNING_BY_INDEX = {2: -0.075, 3: -0.065}   # V into the e, i into the V. Media spacing is left alone.   # pull these letters toward the one before them, in em
 VOXEL_LETTERS = 0.0009   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
 EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
@@ -292,7 +292,7 @@ def letters_into(bm, r_out):
     bpy.context.view_layer.update()
     for i, ch in enumerate(LETTERS):
         curve.body_format[i].use_small_caps = ch.islower()
-        curve.body_format[i].kerning = KERNING.get(ch, 0.0)
+        curve.body_format[i].kerning = KERNING_BY_INDEX.get(i, 0.0)
     # pass one, flat, to measure the capital height at size 1
     depsgraph = bpy.context.evaluated_depsgraph_get()
     flat = bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph))

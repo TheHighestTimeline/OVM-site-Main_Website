@@ -203,11 +203,17 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
         for ob in objs:
             ob["dissolve"] = dissolve
             ob.keyframe_insert('["dissolve"]', frame=f)
-    # after the flight the hat stays gone
+    # after the flight the hat is gone for good: fully dissolved, then hidden from
+    # render so four transparent caps never stack up at the entry point
     for ob in objs:
         ob["dissolve"] = 1.0
         ob.keyframe_insert('["dissolve"]', frame=end + 1)
-    hat.hide_render = False
+        ob.hide_render = False
+        ob.keyframe_insert("hide_render", frame=1)
+        ob.keyframe_insert("hide_render", frame=end)
+        ob.hide_render = True
+        ob.keyframe_insert("hide_render", frame=end + 1)
+        ob.hide_render = False
     return start, end
 
 
@@ -244,6 +250,7 @@ def main():
     for ob in family(founder):
         ob["dissolve"] = 0.0
 
+    scene.cycles.transparent_max_bounces = 32
     scene.frame_start = 1
     total = INTRO_HOLD + (len(HATS) - 1) * LAUNCH_EVERY + FLIGHT + REVEAL
     scene.frame_end = total

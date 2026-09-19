@@ -39,7 +39,7 @@ DISSOLVE_FRAMES = 6
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.12, -0.70, 0.62))   # from the launch point: right, toward camera, up
+APEX_OFFSET = Vector((0.16, -0.42, 0.30))   # from the launch point: right, toward camera, up. Must stay in frame.
 ENTRY_INSET = 0.02                          # how far past the O's left edge the hat travels before it is gone
 APEX_SCALE = 1.12
 CONTACT_SCALE = 0.42                        # hat width 0.28 m times this is about 60 percent of the O's 0.20 m
@@ -56,7 +56,7 @@ ROTATION = {
 }
 
 FOUNDER_LIGHT_ENERGY = 260.0
-PULSE_ENERGY = 900.0
+PULSE_ENERGY = 45.0
 
 KEY_FRAMES_TO_RENDER = 6
 PREVIEW_WIDTH = 800
@@ -270,8 +270,8 @@ def main():
         pulse = bpy.data.objects.new("LIGHT.absorb", data)
         (bpy.data.collections.get("Camera and Lights") or scene.collection).objects.link(pulse)
     pulse.data.color = (1.0, 0.92, 0.80)
-    pulse.data.shadow_soft_size = 0.06
-    pulse.location = entry + Vector((0.04, -0.06, 0.0))
+    pulse.data.shadow_soft_size = 0.03
+    pulse.location = entry + Vector((0.06, -0.03, 0.0))   # just in front of the ring face
     clear_animation(pulse)
     pulse.data.animation_data_clear()
     pulse.data.energy = 0.0

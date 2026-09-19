@@ -32,6 +32,7 @@ STACK_YAW_STEP = 1.5           # degrees, each hat turned a little further than 
 STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
 STACK_XY_JITTER = 0.006        # metres
 LOGO_LOCATION = Vector((-0.50, -0.05, 0.30))  # centre of the O, in a row beside the stack, centred on its height
+ARC_HEADROOM = 0.42            # metres of air above the stack so the flight apex stays in frame
 FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))
 CAMERA_TARGET = Vector((-0.15, -0.10, 0.25))
@@ -192,6 +193,8 @@ def place_logo(logo):
 def set_camera(cam, hats, logo):
     """Frame stack and logo together at 85 mm, keeping the handbook's camera height and angle."""
     lo, hi = world_bbox(hats + [logo])
+    hi = hi.copy()
+    hi.z += ARC_HEADROOM          # room above the stack for the flight apex
     width = (hi.x - lo.x) * FRAME_MARGIN
     height = (hi.z - lo.z) * FRAME_MARGIN
     aspect = FULL_WIDTH / FULL_HEIGHT

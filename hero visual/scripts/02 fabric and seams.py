@@ -604,11 +604,24 @@ def build_seam_stitches(hat, col, material):
         pts = sorted((v.co.copy() for v in edge), key=lambda c: math.atan2(c.x, -c.y))
     if len(pts) > 3:
         brim_top = max(p.z for p in pts) + 0.05
+        # the crown footprint at the brim root, per angle, so rows can be clipped where the brim runs out
+        me = hat.data
+        root = [v.co for v in me.vertices if v.co.z < 0.02 and 0.10 < math.hypot(v.co.x, v.co.y) < 0.165]
+        def crown_radius_at(ang):
+            near = [math.hypot(c.x, c.y) for c in root if abs((math.atan2(c.x, -c.y) - ang + math.pi) % (2 * math.pi) - math.pi) < 0.12]
+            return max(near) if near else 0.150
+        # outer curve only: the front facing points, dropped where the brim is nearly zero width
+        outer = []
+        for p in pts:
+            ang = math.atan2(p.x, -p.y)
+            if abs(ang) < math.radians(95) and math.hypot(p.x, p.y) - crown_radius_at(ang) > 0.004:
+                outer.append(p)
+        outer.sort(key=lambda c: math.atan2(c.x, -c.y))
         for inset in BRIM_ROWS:
             row = []
-            for i, p in enumerate(pts):
-                nxt = pts[min(i + 1, len(pts) - 1)]
-                prv = pts[max(i - 1, 0)]
+            for i, p in enumerate(outer):
+                nxt = outer[min(i + 1, len(outer) - 1)]
+                prv = outer[max(i - 1, 0)]
                 along = Vector((nxt.x - prv.x, nxt.y - prv.y, 0.0))
                 if along.length < 1e-9:
                     continue
@@ -616,7 +629,13 @@ def build_seam_stitches(hat, col, material):
                 normal = Vector((-along.y, along.x, 0.0))
                 if normal.dot(Vector((-p.x, -p.y, 0.0))) < 0.0:
                     normal = -normal          # point toward the crown axis
-                row.append(p + normal * inset)
+                q = p + normal * inset
+                # clip: the row stops where the brim is not wide enough for this inset
+                if math.hypot(q.x, q.y) - crown_radius_at(math.atan2(q.x, -q.y)) < 0.005:
+                    continue
+                row.append(q)
+            if len(row) < 4:
+                continue
             dense = resample(row, 0.0005)
             surface = []
             for p in dense:

@@ -47,6 +47,15 @@ APEX_TILT_DEG = 7.0
 LATERAL_JITTER = (0.00, 0.03, -0.02, 0.04)  # metres, per hat, same path not identical path
 APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 
+# spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
+# square on at the apex, where the word gets its read. (turns X, turns Z)
+CLIMB_SPIN = {
+    "socials":  (1.0, 0.25),
+    "content":  (0.5, 0.75),
+    "website":  (0.75, 0.5),
+    "branding": (0.5, 0.0),
+}
+
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)
 ROTATION = {
     "socials":  (1.25, 0.0, 0.0, 6.0),      # forward tumble, brim leads, light Y sway
@@ -164,7 +173,8 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
     start = INTRO_HOLD + index * LAUNCH_EVERY
     end = start + FLIGHT
     apex = launch_pos + APEX_OFFSET + Vector((LATERAL_JITTER[index], 0.0, APEX_HEIGHT_JITTER[index]))
-    turns_x, turns_y, turns_z, wobble = ROTATION[hat.name.split(".")[-1]]
+    key = hat.name.split(".")[-1]
+    turns_x, turns_y, turns_z, wobble = ROTATION[key]
     objs = family(hat)
     for ob in objs:
         ob["dissolve"] = 0.0
@@ -179,7 +189,13 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             c2 = apex + Vector((0.0, 0.10, 0.05))
             pos = bezier(launch_pos, c1, c2, apex, smoothstep(u))
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)
-            rot = Euler((tilt * smoothstep(u), 0.0, base_yaw * (1.0 - smoothstep(u))), "XYZ")
+            # spin that unwinds to zero at the apex. smoothstep flattens at u=1, so the
+            # hat settles square to camera for a couple of frames rather than snapping.
+            cx, cz = CLIMB_SPIN[key]
+            remaining = 1.0 - smoothstep(u)
+            rot = Euler((tilt * smoothstep(u) - cx * 2.0 * math.pi * remaining,
+                         0.0,
+                         base_yaw * remaining - cz * 2.0 * math.pi * remaining), "XYZ")
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)
@@ -188,7 +204,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             pos = bezier(apex, c1, c2, entry, smoothstep(u))
             # shrink hard, most of it in the middle of the descent
             scale = APEX_SCALE + (CONTACT_SCALE - APEX_SCALE) * ease_in(u, 1.4)
-            spin = smoothstep(u)
+            spin = u * u * (2.0 - u) if u < 1.0 else 1.0        # eases in gently from the apex, keeps going
             wob = math.radians(wobble) * math.sin(u * math.pi * 3.0) * (1.0 - u)
             rot = Euler((tilt + turns_x * 2.0 * math.pi * spin + wob,
                          turns_y * 2.0 * math.pi * spin + wob * 0.5,

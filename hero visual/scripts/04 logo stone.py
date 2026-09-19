@@ -44,11 +44,11 @@ LETTER_TRACKING = 1.0
 # Per glyph horizontal offsets in em, applied to that glyph and everything after it.
 # Blender's own kerning field barely moves glyphs, so placement is done by hand.
 OFFSETS_EM = {2: -0.09, 3: -0.115}  # V pulled over the e, i pulled under the V   # pull these letters toward the one before them, in em
-VOXEL_LETTERS = 0.0009   # remesh size for the letters, metres. Dense geometry so the stone displaces for real
+VOXEL_LETTERS = 0.0018   # remesh size for the letters, metres. Scaled with O_DIAMETER: the blend must stay under GitHub's 100 MB limit
 EROSION_SMOOTH = 0       # smoothing passes that round the letter edges into worn boulders
 HEWN_LARGE = 0.0         # metres, low frequency lumps baked into the letter geometry
 HEWN_SMALL = 0.0         # metres, mid frequency lumps
-VOXEL_RING = 0.0005      # remesh size for the ring, fine enough to keep the engraving
+VOXEL_RING = 0.0010      # remesh size for the ring, fine enough to keep the engraving
 RING_DEPTH_SCALE = 2.5   # the ring is scaled uniformly (so the engraving keeps the designer's proportions), then its depth is multiplied by this
 BEVEL_WIDTH = 0.004
 BEVEL_SEGMENTS = 3

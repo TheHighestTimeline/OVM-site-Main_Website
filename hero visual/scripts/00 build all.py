@@ -53,3 +53,5 @@ bpy.context.scene.render.filepath = "//renders/"
 bpy.ops.wm.save_as_mainfile(filepath=BLEND, compress=True, relative_remap=True)
 size_mb = os.path.getsize(BLEND) / 1e6
 print(f"\n[00 build all] saved {BLEND} ({size_mb:.1f} MB) in {time.time() - t0:.0f} s total")
+if size_mb > 95:
+    print(f"[00 build all] WARNING: {size_mb:.0f} MB is over GitHub's 100 MB file limit. Raise VOXEL_RING or VOXEL_LETTERS in 04.")

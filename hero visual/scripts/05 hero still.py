@@ -24,16 +24,16 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_X = -2.35
-STACK_Y = 0.05
-STACK_BASE_Z = 0.0
+STACK_GAP = -0.10             # world x overlap between the stack and the O's left edge. The stack sits forward, so it clears in depth
+STACK_Y = -0.90               # the stack is this far toward the viewer from the mark, so the hats read large
+STACK_BASE_Z = -0.05          # bottom hat; the O sits a little above the stack's middle
 STACK_SPACING = 0.075          # nested like real stacked caps, brims clear of each other
 STACK_YAW_STEP = 1.5           # degrees, each hat turned a little further than the one below
 STACK_YAW_JITTER = 0.8         # degrees of extra randomness on top of the step
 STACK_XY_JITTER = 0.006        # metres
 LOGO_LOCATION = Vector((-0.30, -0.05, 0.30))  # centre of the O, in a row beside the stack, centred on its height
 ARC_HEADROOM = 0.18            # metres of air above the stack so the flight apex stays in frame
-FRAME_MARGIN = 1.12            # auto framing: the combined width times this fills the frame
+FRAME_MARGIN = 1.05            # auto framing: the combined width times this fills the frame
 CAMERA_LOCATION = Vector((-0.15, -4.60, 0.46))
 CAMERA_TARGET = Vector((-0.15, -0.10, 0.25))
 CAMERA_FSTOP = 5.6
@@ -270,9 +270,13 @@ def main():
     hats_col = collection("Hats")
     rig_col = collection("Camera and Lights")
 
+    place_logo(logo)
+    bpy.context.view_layer.update()
+    logo_lo, logo_hi = world_bbox([logo])
+    global STACK_X
+    STACK_X = logo_lo.x + STACK_GAP - 0.17       # stack centre: half a crown left of the O's edge plus the overlap
     hats = build_stack(base, seam_master, hats_col)
     hide_masters(base, seam_master)
-    place_logo(logo)
     bpy.context.view_layer.update()      # fresh bounding boxes for the new objects
     set_camera(cam, hats, logo)
     key, fill, rim, founder_light = relight(rig_col, hats, logo)

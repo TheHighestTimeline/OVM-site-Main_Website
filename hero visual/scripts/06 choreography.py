@@ -54,10 +54,10 @@ APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 # spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
 # square on at the apex, where the word gets its read. (turns X, turns Z)
 CLIMB_SPIN = {
-    "socials":  (0.22, 0.08),      # peaks around 80 degrees forward, never upside down
-    "content":  (0.18, 0.15),
-    "website":  (0.20, 0.10),
-    "branding": (0.14, 0.0),
+    "socials":  (0.45, 0.08),      # peaks almost upside down late in the climb, then unwinds square
+    "content":  (0.40, 0.15),
+    "website":  (0.42, 0.10),
+    "branding": (0.30, 0.0),
 }
 
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)
@@ -209,7 +209,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             cx, cz = CLIMB_SPIN[key]
             # the roll continues from the lift tilt: total turn grows smoothly to cx turns
             # and then comes back to square. Skewed so the fast part is late, not at the start.
-            spun = math.sin(min(1.0, u * 1.25) * math.pi)          # even roll, fully square for the last fifth of the climb
+            spun = math.sin(u ** 1.25 * math.pi)                    # peaks late in the climb, square exactly at the apex
             lift_tilt = math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
             rot = Euler((tilt * smoothstep(u) + lift_tilt + cx * 2.0 * math.pi * spun,
                          0.0,

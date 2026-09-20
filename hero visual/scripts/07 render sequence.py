@@ -89,8 +89,17 @@ def to_webp(png_path, webp_path):
     return os.path.getsize(webp_path)
 
 
-def render_set(scene, frames, out_dir):
-    """Render each (index, frame) to out_dir as WebP, skipping ones already there, so a stopped run resumes."""
+def derive_mobile(png_path, mobile_webp):
+    """The mobile frame is the desktop render scaled down, not a second render: same samples, fewer pixels."""
+    from PIL import Image
+    im = Image.open(png_path).convert("RGBA")
+    h = round(im.height * MOBILE_WIDTH / im.width)
+    im.resize((MOBILE_WIDTH, h), Image.LANCZOS).save(mobile_webp, "WEBP", quality=WEBP_QUALITY, method=6)
+
+
+def render_set(scene, frames, out_dir, mobile_dir=None):
+    """Render each (index, frame) to out_dir as WebP, skipping ones already there, so a stopped run resumes.
+    With mobile_dir given, every MOBILE_STEP-th desktop frame is also scaled down into it."""
     total_bytes, done, skipped = 0, 0, 0
     for i, f in frames:
         webp = os.path.join(out_dir, f"frame_{i:04d}.webp")
@@ -101,6 +110,8 @@ def render_set(scene, frames, out_dir):
         png = webp[:-5] + ".png"
         dt = render_frame(scene, f, png)
         total_bytes += to_webp(png, webp)
+        if mobile_dir is not None and i % MOBILE_STEP == 0:
+            derive_mobile(png, os.path.join(mobile_dir, f"frame_{i // MOBILE_STEP:04d}.webp"))
         if not KEEP_PNG:
             os.remove(png)
         done += 1
@@ -151,9 +162,9 @@ def main():
     # desktop set
     t0 = time.time()
     desktop = [(f - scene.frame_start, f) for f in range(scene.frame_start, scene.frame_end + 1)]
-    total_bytes, d_done, d_skipped = render_set(scene, desktop, frames_dir)
+    total_bytes, d_done, d_skipped = render_set(scene, desktop, frames_dir, mobile_dir)
     desktop_time = time.time() - t0
-    # mobile set
+    # mobile set: anything not already derived from the desktop pass is rendered at mobile width
     setup(scene, MOBILE_WIDTH, int(MOBILE_WIDTH * FULL_HEIGHT / FULL_WIDTH))
     t1 = time.time()
     mobile = list(enumerate(range(scene.frame_start, scene.frame_end + 1, MOBILE_STEP)))

@@ -319,6 +319,7 @@
         .pf-card:hover::after{opacity:1;animation:beamSpin 2.8s linear infinite}
         @keyframes beamSpin{to{--beam-angle:360deg}}
 
+        html.pf-pinned .portfolio-carousel{overflow:visible;scroll-snap-type:none;padding-bottom:8px}
         /* Magic UI Magic Card on pricing tiles */
         .tile{position:relative;overflow:hidden;--mx:-300px;--my:-300px}
         .tile>*{position:relative;z-index:2}
@@ -815,6 +816,14 @@ if(MOTION){
     new IntersectionObserver((es,o)=>{es.forEach(en=>{if(en.isIntersecting){tl.play();o.disconnect()}})},{threshold:.35}).observe(man);
   });
 
+
+  /* Portfolio: pinned horizontal scrub on desktop, native swipe on mobile */
+  gsap.matchMedia().add('(min-width: 961px)',()=>{
+    const car=document.querySelector('.portfolio-carousel');document.documentElement.classList.add('pf-pinned');
+    const dist=()=>Math.max(0,car.scrollWidth-car.clientWidth);
+    gsap.to(car,{x:()=>-dist(),ease:'none',scrollTrigger:{trigger:'#portfolio',pin:true,scrub:1,start:'top 60px',end:()=>'+='+dist(),anticipatePin:1,invalidateOnRefresh:true}});
+    return ()=>{document.documentElement.classList.remove('pf-pinned');gsap.set(car,{clearProps:'x'})}
+  });
 
   window.addEventListener('load',()=>ScrollTrigger.refresh());
 }

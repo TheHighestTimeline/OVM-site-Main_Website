@@ -18,6 +18,17 @@
   const startFrame = Math.min(frameCount - 1, Math.max(0, Math.round(
     Number(section.dataset.startFrame || 0) * (mobile ? Number(section.dataset.mobileFrameCount) / Number(section.dataset.frameCount) : 1))));
 
+  // the caption fades in from data-reveal-frame over data-reveal-fade frames (desktop frame numbers)
+  const caption = section.querySelector(".scroll-hero__caption");
+  const ratio = mobile ? Number(section.dataset.mobileFrameCount) / Number(section.dataset.frameCount) : 1;
+  const revealFrame = Number(section.dataset.revealFrame || frameCount) * ratio;
+  const revealFade = Math.max(1, Number(section.dataset.revealFade || 8) * ratio);
+  function caption_at(frame) {
+    if (!caption) return;
+    const t = Math.min(1, Math.max(0, (frame - revealFrame) / revealFade));
+    caption.style.opacity = (t * t * (3 - 2 * t)).toFixed(3);
+  }
+
   const frames = new Array(frameCount);
   let current = -1;
   let wanted = startFrame;
@@ -49,6 +60,7 @@
     // a single final frame, no scroll section
     load(frameCount - 1).then(() => draw(frameCount - 1));
     canvas.style.display = "block";
+    caption_at(frameCount - 1);
     return;
   }
 
@@ -63,6 +75,6 @@
     frame: frameCount - 1,
     ease: "none",
     scrollTrigger: { trigger: section, start: "top top", end: "bottom bottom", scrub: true },
-    onUpdate: () => draw(Math.round(state.frame)),
+    onUpdate: () => { draw(Math.round(state.frame)); caption_at(state.frame); },
   });
 })();

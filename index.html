@@ -51,6 +51,11 @@
         .scroll-hero + .hero{margin-top:-20vh;padding-top:0}   /* the heading tucks into the empty band under the hats as the canvas slides away */
         .scroll-hero__sticky{position:sticky;top:0;height:100vh;display:grid;place-items:center;overflow:hidden}
         .scroll-hero__canvas{width:100%;max-width:1600px;height:auto;display:block}
+        .scroll-hero__frame{position:relative;width:100%;max-width:1600px}
+        .scroll-hero__caption{position:absolute;left:29%;top:60%;opacity:0;pointer-events:none;will-change:opacity}
+        .scroll-hero__line{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:clamp(22px,2.6vw,42px);line-height:1.15;letter-spacing:-0.5px;color:var(--white,#fff);margin:0}
+        .scroll-hero__sub{font-family:'Sora',sans-serif;font-weight:300;font-size:clamp(12px,1vw,16px);line-height:1.6;color:var(--muted,#9aa0aa);margin:10px 0 0}
+        @media (max-width:900px){.scroll-hero__caption{left:6%;top:72%}.scroll-hero__line{font-size:clamp(20px,6vw,28px)}.scroll-hero__sub{font-size:13px}}
         @media (prefers-reduced-motion:reduce){.scroll-hero{height:auto}.scroll-hero__sticky{height:auto}}
         /* HERO */
         .hero{display:flex;align-items:center;justify-content:center;text-align:center;padding:72px 48px 80px;position:relative;overflow:hidden}
@@ -256,10 +261,17 @@
          data-mobile-frame-count="71"
          data-mobile-max-width="900"
          data-start-frame="8"
+         data-reveal-frame="128" data-reveal-fade="10"
          data-scroll-height="400vh"
          data-width="1600" data-height="900">
     <div class="scroll-hero__sticky">
-        <canvas class="scroll-hero__canvas" width="1600" height="900" aria-label="OneVibeMedia: five caps lift one by one into the carved stone wordmark"></canvas>
+        <div class="scroll-hero__frame">
+            <canvas class="scroll-hero__canvas" width="1600" height="900" aria-label="OneVibeMedia: five caps lift one by one into the carved stone wordmark"></canvas>
+            <div class="scroll-hero__caption" aria-live="polite">
+                <p class="scroll-hero__line">You wear a lot of hats.</p>
+                <p class="scroll-hero__sub">Let us take a few off your hands.</p>
+            </div>
+        </div>
     </div>
 </section>
 

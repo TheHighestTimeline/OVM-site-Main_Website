@@ -60,6 +60,47 @@ def workdir():
     raise RuntimeError("Cannot locate the Hat Hero working folder (needs a scripts subfolder)")
 
 
+_DEVICE = None
+
+
+def choose_device():
+    """GPU when the machine has one Cycles can use, otherwise CPU. Set HATHERO_DEVICE=CPU to force CPU.
+    Tries every backend Blender knows and enables all non CPU devices it finds."""
+    global _DEVICE
+    if _DEVICE is not None:
+        return _DEVICE
+    if os.environ.get("HATHERO_DEVICE", "").upper() == "CPU":
+        _DEVICE = "CPU"
+        print("  device: CPU (HATHERO_DEVICE=CPU)")
+        return _DEVICE
+    prefs = bpy.context.preferences.addons.get("cycles")
+    found = []
+    if prefs is not None:
+        prefs = prefs.preferences
+        for backend in ("OPTIX", "CUDA", "HIP", "METAL", "ONEAPI"):
+            try:
+                prefs.compute_device_type = backend
+            except TypeError:
+                continue
+            try:
+                prefs.get_devices()
+            except Exception:
+                pass
+            gpus = [d for d in prefs.devices if d.type != "CPU"]
+            if gpus:
+                for d in prefs.devices:
+                    d.use = d.type != "CPU"
+                found = [(backend, d.name) for d in gpus]
+                break
+    if found:
+        _DEVICE = "GPU"
+        print(f"  device: GPU via {found[0][0]}: " + ", ".join(n for _, n in found))
+    else:
+        _DEVICE = "CPU"
+        print("  device: CPU (no GPU backend found; on a GPU machine check Blender's System preferences)")
+    return _DEVICE
+
+
 def setup(scene, width, height):
     scene.render.engine = "BLENDER_EEVEE_NEXT" if ENGINE.startswith("EEVEE") else "CYCLES"
     scene.render.resolution_x = width
@@ -72,6 +113,7 @@ def setup(scene, width, height):
     if scene.render.engine == "CYCLES":
         scene.cycles.samples = SAMPLES
         scene.cycles.use_denoising = True
+        scene.cycles.device = choose_device()
 
 
 def render_frame(scene, frame, path):

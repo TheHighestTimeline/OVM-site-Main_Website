@@ -53,6 +53,9 @@ APEX_CLOSENESS = 2.5         # launch to camera distance divided by this is the 
 # the hat never covers the O on screen: on every frame its projected right edge is held
 # left of the ring's left edge by this margin (frame fraction), shifting the hat left if needed
 O_EDGE_MARGIN = 0.008
+# the hero sits at the top of the page, so no hat may ever rise above this fraction of the
+# frame height (measured from the bottom): the top fifth of the frame stays clear
+HAT_TOP_LIMIT = 0.80
 # the ring's reaction: a faint ripple running out from the contact point across the stone
 RIPPLE_FRAMES = 14
 RIPPLE_REACH = 0.45          # metres the ripple front travels, a little more than the ring's diameter
@@ -290,28 +293,35 @@ def apex_for(launch_pos, cam, scene):
     return cam.matrix_world @ local
 
 
-def right_edge_ndc(hat, pos, rot, scale, cam, scene):
-    """Projected right edge (frame fraction) of the hat's bounding box at this pose, and its depth."""
+def projected_extent(hat, pos, rot, scale, cam, scene):
+    """Projected right and top edges (frame fractions) of the hat's bounding box at this pose, and the depth."""
     m = Matrix.Translation(pos) @ rot.to_matrix().to_4x4() @ Matrix.Diagonal((scale, scale, scale, 1.0))
-    best, depth = -1e9, None
+    right, top, depth = -1e9, -1e9, None
     for corner in hat.bound_box:
         v = world_to_camera_view(scene, cam, m @ Vector(corner))
-        if v.x > best:
-            best, depth = v.x, v.z
-    return best, depth
+        right = max(right, v.x)
+        top = max(top, v.y)
+        depth = v.z if depth is None else min(depth, v.z)
+    return right, top, depth
 
 
-def keep_left_of_o(hat, pos, rot, scale, cam, scene, limit):
-    """Shift the hat left along the camera's x axis until its right edge sits at or left of `limit`."""
+def keep_in_frame(hat, pos, rot, scale, cam, scene, right_limit, top_limit):
+    """Shift the hat left and down, along the camera's axes, until its projected right edge is at or
+    left of `right_limit` and its top edge at or below `top_limit`."""
     aspect = scene.render.resolution_x / scene.render.resolution_y
     half_w = cam.data.sensor_width / cam.data.lens / 2.0 * (aspect if aspect < 1.0 else 1.0)
-    cam_x = cam.matrix_world.to_3x3() @ Vector((1.0, 0.0, 0.0))
-    for _ in range(3):
-        edge, depth = right_edge_ndc(hat, pos, rot, scale, cam, scene)
-        excess = edge - limit
-        if excess <= 0.0:
+    half_h = half_w / aspect
+    rot3 = cam.matrix_world.to_3x3()
+    cam_x, cam_y = rot3 @ Vector((1.0, 0.0, 0.0)), rot3 @ Vector((0.0, 1.0, 0.0))
+    for _ in range(4):
+        right, top, depth = projected_extent(hat, pos, rot, scale, cam, scene)
+        dx, dy = right - right_limit, top - top_limit
+        if dx <= 0.0 and dy <= 0.0:
             break
-        pos = pos - cam_x * (excess * 2.0 * half_w * depth)
+        if dx > 0.0:
+            pos = pos - cam_x * (dx * 2.0 * half_w * depth)
+        if dy > 0.0:
+            pos = pos - cam_y * (dy * 2.0 * half_h * depth)
     return pos
 
 
@@ -389,7 +399,7 @@ def flight_keys(hat, index, launch_pos, entry, cam, base_yaw, o_limit):
                          turns_y * 2.0 * math.pi * spin + wob * 0.5,
                          (cz + turns_z * spin) * 2.0 * math.pi), "XYZ")
             dissolve = smoothstep((f - (end - DISSOLVE_FRAMES)) / (DISSOLVE_FRAMES - 1)) if f > end - DISSOLVE_FRAMES else 0.0
-        pos = keep_left_of_o(hat, pos, rot, scale, cam, bpy.context.scene, o_limit)
+        pos = keep_in_frame(hat, pos, rot, scale, cam, bpy.context.scene, o_limit, HAT_TOP_LIMIT)
         hat.location = pos
         hat.rotation_euler = rot
         hat.scale = (scale, scale, scale)
@@ -590,7 +600,7 @@ def main():
     for name, s, e in windows:
         print(f"  {name}: launch {s}, apex {s + int(FLIGHT * APEX_AT)}, hold to {s + int(FLIGHT * APEX_AT) + APEX_HOLD}, contact {e}")
     print(f"  contact point on the O's left side: {tuple(round(c, 3) for c in contact)}; hat centre at contact {tuple(round(c, 3) for c in entry)}")
-    print(f"  O left edge at {o_left_ndc:.3f} of frame width; hats held left of {o_limit:.3f} on every frame")
+    print(f"  O left edge at {o_left_ndc:.3f} of frame width; hats held left of {o_limit:.3f} and below {HAT_TOP_LIMIT:.2f} of frame height on every frame")
     print(f"  ripple: {RIPPLE_FRAMES} frames, reach {RIPPLE_REACH} m, glow {RIPPLE_EMISSION}, lift {RIPPLE_HEIGHT * 1000:.1f} mm")
     print(f"  apex scale {APEX_SCALE}, contact scale {CONTACT_SCALE}: hat width at contact {0.28 * CONTACT_SCALE:.3f} m vs O diameter 0.200 m")
     print(f"  dissolve added to materials: {touched or 'already present'}")

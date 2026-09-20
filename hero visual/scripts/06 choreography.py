@@ -392,21 +392,11 @@ def main():
     apex_light.data.energy = key_light.data.energy * (apex_dist / key_dist) ** 2 * APEX_LIGHT_GAIN
     apex_light.hide_render = False
 
-    # follow focus: the camera keeps whichever flying hat is nearest to it sharp, and rests
-    # on the still's focus distance when nothing is in the air
-    rest_focus = cam.data.dof.focus_distance
+    # no depth of field in the animation: the frames are scrubbed and paused anywhere on the
+    # site, so hat, stack and logo all stay sharp at once. A soft logo on a paused frame reads
+    # as a bad image, not as an effect. The still from 05 keeps its own setting if rendered alone.
     cam.data.animation_data_clear()
-    cam_pos = cam.matrix_world.translation.copy()
-    for f in range(1, total + 1):
-        scene.frame_set(f)
-        nearest = None
-        for h, (_, s, e) in zip(hats, windows):
-            if s <= f <= e:
-                d = (h.matrix_world.translation - cam_pos).length
-                nearest = d if nearest is None else min(nearest, d)
-        cam.data.dof.focus_distance = rest_focus if nearest is None else nearest
-        cam.data.dof.keyframe_insert("focus_distance", frame=f)
-    scene.frame_set(1)
+    cam.data.dof.use_dof = False
 
     # the reveal: founder light ramps after the last hat is gone
     last_end = windows[-1][2]

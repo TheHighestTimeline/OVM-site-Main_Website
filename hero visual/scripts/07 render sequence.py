@@ -124,19 +124,27 @@ def render_frame(scene, frame, path):
     return time.time() - t0
 
 
-def to_webp(png_path, webp_path):
-    from PIL import Image
-    im = Image.open(png_path).convert("RGBA")
-    im.save(webp_path, "WEBP", quality=WEBP_QUALITY, method=6)
+def to_webp(png_path, webp_path, width=None):
+    """Convert a rendered PNG to WebP with Blender's own image code (no extra Python packages),
+    optionally scaled to `width` first. Returns the WebP size in bytes."""
+    scene = bpy.context.scene
+    ist = scene.render.image_settings
+    keep = (ist.file_format, ist.color_mode, ist.quality)
+    img = bpy.data.images.load(png_path, check_existing=False)
+    try:
+        if width is not None and img.size[0] != width:
+            img.scale(width, round(img.size[1] * width / img.size[0]))
+        ist.file_format, ist.color_mode, ist.quality = "WEBP", "RGBA", WEBP_QUALITY
+        img.save_render(webp_path, scene=scene)
+    finally:
+        bpy.data.images.remove(img)
+        ist.file_format, ist.color_mode, ist.quality = keep
     return os.path.getsize(webp_path)
 
 
 def derive_mobile(png_path, mobile_webp):
     """The mobile frame is the desktop render scaled down, not a second render: same samples, fewer pixels."""
-    from PIL import Image
-    im = Image.open(png_path).convert("RGBA")
-    h = round(im.height * MOBILE_WIDTH / im.width)
-    im.resize((MOBILE_WIDTH, h), Image.LANCZOS).save(mobile_webp, "WEBP", quality=WEBP_QUALITY, method=6)
+    return to_webp(png_path, mobile_webp, width=MOBILE_WIDTH)
 
 
 def render_set(scene, frames, out_dir, mobile_dir=None):

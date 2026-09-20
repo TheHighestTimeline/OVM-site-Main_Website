@@ -206,7 +206,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             cx, cz = CLIMB_SPIN[key]
             # the roll continues from the lift tilt: total turn grows smoothly to cx turns
             # and then comes back to square. Skewed so the fast part is late, not at the start.
-            spun = math.sin(u ** 1.6 * math.pi)
+            spun = math.sin(min(1.0, u * 1.25) ** 1.3 * math.pi)   # peaks past the middle, fully square for the last fifth of the climb
             lift_tilt = -math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
             rot = Euler((tilt * smoothstep(u) + lift_tilt - cx * 2.0 * math.pi * spun,
                          0.0,

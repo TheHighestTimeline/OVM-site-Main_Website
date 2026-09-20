@@ -33,7 +33,7 @@ HATS = ["socials", "content", "website", "branding"]     # flight order
 FPS = 24
 INTRO_HOLD = 8
 FLIGHT = 40           # moving frames per hat: lift, climb, descent (the apex hold is extra)
-APEX_HOLD = 24        # frames the hat hangs square at the apex for the read, one second at FPS
+APEX_HOLD = 6         # frames the hat hangs square at the apex: a quarter second, a noticeable beat and no more
 LAUNCH_EVERY = 18 + APEX_HOLD   # hat N+1 launches as hat N leaves its apex hold and starts to descend
 APEX_BOB = 0.008      # metres of gentle float during the hold so it never looks frozen
 REVEAL = 16           # founder light ramp after the last absorption
@@ -44,12 +44,19 @@ LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
 SEPARATE_LIFT = Vector((0.25, -0.90, 0.16))  # up, well forward, a little right: enough to cancel the perspective drift, no more
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.50, -1.15, 0.28))   # just beyond the separation point: the hat eases over the top there, then descends
+# the apex is placed by where it lands on screen and how near the camera it comes, so the
+# hat reads large: at APEX_CLOSENESS 3 it sits a third of the stack's camera distance away,
+# which makes it about three times bigger on screen than it is in the stack
+APEX_SCREEN = (0.21, 0.56)   # frame fractions, x from the left, y from the bottom: above the stack, left of the O
+APEX_CLOSENESS = 3.0         # launch to camera distance divided by this is the apex to camera distance
 O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
 ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
 CONTACT_SCALE = 0.40                        # hat width 0.28 m times this is about 28 percent of the O, so it fits the ring's stroke
 APEX_TILT_DEG = 7.0
+APEX_LIGHT_OFFSET = Vector((-1.3, -0.5, 1.5))   # metres from the apex: high, to the left, a little toward the camera, so the crown shades
+APEX_LIGHT_SPREAD_DEG = 35.0                     # narrow enough that the stack and logo stay as lit in the still
+APEX_LIGHT_GAIN = 0.10      # black fabric near the lens needs far less than the inverse square of the key suggests: a tenth keeps it black with the word readable
 LATERAL_JITTER = (0.00, 0.03, -0.02, 0.04)  # metres, per hat, same path not identical path
 APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 
@@ -176,12 +183,26 @@ def family(hat):
 
 
 # ------------------------------------------------------------- the flight
-def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
+def apex_for(launch_pos, cam, scene):
+    """World position of the apex: the camera ray through APEX_SCREEN, at a fraction of the launch distance."""
+    cam_pos = cam.matrix_world.translation
+    depth = (launch_pos - cam_pos).length / APEX_CLOSENESS
+    aspect = scene.render.resolution_x / scene.render.resolution_y
+    half_w = cam.data.sensor_width / cam.data.lens / 2.0     # half frame width at unit depth, sensor fit on the wide side
+    if aspect < 1.0:
+        half_w *= aspect
+    x = (APEX_SCREEN[0] - 0.5) * 2.0 * half_w
+    y = (APEX_SCREEN[1] - 0.5) * 2.0 * half_w / aspect
+    local = Vector((x, y, -1.0)) * depth
+    return cam.matrix_world @ local
+
+
+def flight_keys(hat, index, launch_pos, entry, cam, base_yaw):
     """Keyframe one hat's flight starting at frame `start`."""
     start = INTRO_HOLD + index * LAUNCH_EVERY
     end = start + FLIGHT + APEX_HOLD
     apex_frame = int(round(FLIGHT * APEX_AT))
-    apex = launch_pos + APEX_OFFSET + Vector((LATERAL_JITTER[index], 0.0, APEX_HEIGHT_JITTER[index]))
+    apex = apex_for(launch_pos, cam, bpy.context.scene) + Vector((LATERAL_JITTER[index], 0.0, APEX_HEIGHT_JITTER[index]))
     key = hat.name.split(".")[-1]
     turns_x, turns_y, turns_z, wobble = ROTATION[key]
     objs = family(hat)
@@ -219,8 +240,8 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
         elif t <= APEX_AT:
             u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
             # climb: clear point to apex, gentle curve toward camera
-            c1 = clear_pos + Vector((0.10, -0.10, 0.12))
-            c2 = apex + Vector((0.0, 0.10, 0.05))
+            c1 = clear_pos + (apex - clear_pos) * 0.25 + Vector((0.0, 0.0, 0.15))
+            c2 = apex + (clear_pos - apex) * 0.25 + Vector((0.0, 0.0, 0.05))
             pos = bezier(clear_pos, c1, c2, apex, smoothstep(u))
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)
             # spin starts now, and unwinds to zero at the apex so the hat settles square
@@ -238,8 +259,8 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)
-            c1 = apex + Vector((0.35, -0.05, 0.02))
-            c2 = entry + Vector((-0.35, -0.30, 0.0))   # comes across at logo height, from in front
+            c1 = apex + (entry - apex) * 0.25 + Vector((0.25, 0.0, 0.0))
+            c2 = entry + (apex - entry) * 0.25 + Vector((-0.20, 0.0, 0.0))   # comes across to the O from in front, at its height
             pos = bezier(apex, c1, c2, entry, smoothstep(u))
             # shrink hard, most of it in the middle of the descent
             scale = APEX_SCALE + (CONTACT_SCALE - APEX_SCALE) * ease_in(u, 1.4)
@@ -298,7 +319,10 @@ def main():
     stroke_centre = o_radius * 0.835                          # midway across the ring's stroke
     entry = Vector((o_centre.x - stroke_centre, o_centre.y - ring_depth * 0.5 - 0.02, o_centre.z))
 
-    # rest state and stack positions come from 05
+    # rest state and stack positions come from 05. Frame 1 always holds the stack, whether
+    # or not an earlier run left animation behind, so read it there and not on whatever
+    # frame the file was last saved on
+    scene.frame_set(1)
     rest = {h: (h.location.copy(), h.rotation_euler.copy(), h.scale.copy()) for h in hats}
     for h in hats:
         clear_animation(h)
@@ -325,7 +349,7 @@ def main():
         h.keyframe_insert("location", frame=1)
         h.keyframe_insert("rotation_euler", frame=1)
         h.keyframe_insert("scale", frame=1)
-        s, e = flight_keys(h, i, loc.copy(), entry, cam.location, rot.z)
+        s, e = flight_keys(h, i, loc.copy(), entry, cam, rot.z)
         windows.append((h.name, s, e))
 
     # stone reaction: a warm light pulse in the crevices at each contact
@@ -345,6 +369,44 @@ def main():
         for f, v in ((e - 4, 0.0), (e - 1, PULSE_ENERGY), (e + 6, 0.0)):
             pulse.data.energy = v
             pulse.data.keyframe_insert("energy", frame=f)
+
+    # the apex light: the flying hat comes far nearer the camera than the key light reaches,
+    # so a soft area light covers the apex. Its power is scaled from the key by inverse square
+    # so the hat is lit as it is in the stack, and its spread is narrowed so the rest of the
+    # scene stays as the approved still
+    key_light = require("LIGHT.key")
+    apex_ref = apex_for(rest[hats[0]][0].copy(), cam, scene)
+    key_dist = (key_light.matrix_world.translation - rest[hats[0]][0]).length
+    apex_light = bpy.data.objects.get("LIGHT.apex")
+    if apex_light is None:
+        data = bpy.data.lights.new("LIGHT.apex", "AREA")
+        apex_light = bpy.data.objects.new("LIGHT.apex", data)
+        (bpy.data.collections.get("Camera and Lights") or scene.collection).objects.link(apex_light)
+    apex_light.data.shape = "SQUARE"
+    apex_light.data.size = 1.2
+    apex_light.data.spread = math.radians(APEX_LIGHT_SPREAD_DEG)
+    apex_light.data.color = key_light.data.color
+    apex_light.location = apex_ref + APEX_LIGHT_OFFSET
+    look_at(apex_light, apex_ref)
+    apex_dist = (apex_light.location - apex_ref).length
+    apex_light.data.energy = key_light.data.energy * (apex_dist / key_dist) ** 2 * APEX_LIGHT_GAIN
+    apex_light.hide_render = False
+
+    # follow focus: the camera keeps whichever flying hat is nearest to it sharp, and rests
+    # on the still's focus distance when nothing is in the air
+    rest_focus = cam.data.dof.focus_distance
+    cam.data.animation_data_clear()
+    cam_pos = cam.matrix_world.translation.copy()
+    for f in range(1, total + 1):
+        scene.frame_set(f)
+        nearest = None
+        for h, (_, s, e) in zip(hats, windows):
+            if s <= f <= e:
+                d = (h.matrix_world.translation - cam_pos).length
+                nearest = d if nearest is None else min(nearest, d)
+        cam.data.dof.focus_distance = rest_focus if nearest is None else nearest
+        cam.data.dof.keyframe_insert("focus_distance", frame=f)
+    scene.frame_set(1)
 
     # the reveal: founder light ramps after the last hat is gone
     last_end = windows[-1][2]

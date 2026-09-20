@@ -32,8 +32,10 @@ HATS = ["socials", "content", "website", "branding"]     # flight order
 # ---------------------------------------------------------------- timing
 FPS = 24
 INTRO_HOLD = 8
-FLIGHT = 40           # frames per hat
-LAUNCH_EVERY = 18     # hat N+1 launches when hat N is near its apex
+FLIGHT = 40           # moving frames per hat: lift, climb, descent (the apex hold is extra)
+APEX_HOLD = 24        # frames the hat hangs square at the apex for the read, one second at FPS
+LAUNCH_EVERY = 18 + APEX_HOLD   # hat N+1 launches as hat N leaves its apex hold and starts to descend
+APEX_BOB = 0.008      # metres of gentle float during the hold so it never looks frozen
 REVEAL = 16           # founder light ramp after the last absorption
 DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
@@ -177,7 +179,8 @@ def family(hat):
 def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
     """Keyframe one hat's flight starting at frame `start`."""
     start = INTRO_HOLD + index * LAUNCH_EVERY
-    end = start + FLIGHT
+    end = start + FLIGHT + APEX_HOLD
+    apex_frame = int(round(FLIGHT * APEX_AT))
     apex = launch_pos + APEX_OFFSET + Vector((LATERAL_JITTER[index], 0.0, APEX_HEIGHT_JITTER[index]))
     key = hat.name.split(".")[-1]
     turns_x, turns_y, turns_z, wobble = ROTATION[key]
@@ -187,9 +190,20 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
     tilt = math.radians(APEX_TILT_DEG * (1.0 if index % 2 == 0 else -1.0))
 
     for f in range(start, end + 1):
-        t = (f - start) / FLIGHT
+        rel = f - start
+        # the hold sits between climb and descent; time before it and after it is measured on the moving clock
+        holding = apex_frame < rel <= apex_frame + APEX_HOLD
+        t = rel / FLIGHT if rel <= apex_frame else (rel - APEX_HOLD) / FLIGHT
         clear_pos = launch_pos + SEPARATE_LIFT
-        if t <= SEPARATE_AT:
+        if holding:
+            # apex hold: square on, level, a slow float so the word gets its read
+            h = (rel - apex_frame) / APEX_HOLD
+            cx, cz = CLIMB_SPIN[key]
+            pos = apex + Vector((0.0, 0.0, APEX_BOB * math.sin(h * math.pi)))
+            scale = APEX_SCALE
+            rot = Euler((tilt + cx * 2.0 * math.pi, 0.0, cz * 2.0 * math.pi), "XYZ")
+            dissolve = 0.0
+        elif t <= SEPARATE_AT:
             # separation: lift straight off the stack, no rotation, until fully clear
             u = t / SEPARATE_AT
             # height comes first so nothing below is touched, forward motion follows
@@ -229,11 +243,12 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             pos = bezier(apex, c1, c2, entry, smoothstep(u))
             # shrink hard, most of it in the middle of the descent
             scale = APEX_SCALE + (CONTACT_SCALE - APEX_SCALE) * ease_in(u, 1.4)
-            spin = u * u * (2.0 - u) if u < 1.0 else 1.0        # eases in gently from the apex, keeps going
+            spin = u ** 1.25                                     # spins out of the hold straight away, only a touch of ease
             wob = math.radians(wobble) * math.sin(u * math.pi * 3.0) * (1.0 - u)
-            rot = Euler((tilt + turns_x * 2.0 * math.pi * spin + wob,
+            cx, cz = CLIMB_SPIN[key]                             # carry the climb's whole turns so no frame jumps
+            rot = Euler((tilt + (cx + turns_x * spin) * 2.0 * math.pi + wob,
                          turns_y * 2.0 * math.pi * spin + wob * 0.5,
-                         turns_z * 2.0 * math.pi * spin), "XYZ")
+                         (cz + turns_z * spin) * 2.0 * math.pi), "XYZ")
             dissolve = smoothstep((f - (end - DISSOLVE_FRAMES)) / (DISSOLVE_FRAMES - 1)) if f > end - DISSOLVE_FRAMES else 0.0
         hat.location = pos
         hat.rotation_euler = rot
@@ -295,7 +310,7 @@ def main():
 
     scene.cycles.transparent_max_bounces = 32
     scene.frame_start = 1
-    total = INTRO_HOLD + (len(HATS) - 1) * LAUNCH_EVERY + FLIGHT + REVEAL
+    total = INTRO_HOLD + (len(HATS) - 1) * LAUNCH_EVERY + FLIGHT + APEX_HOLD + REVEAL
     scene.frame_end = total
     scene.render.fps = FPS
 
@@ -353,9 +368,9 @@ def main():
         scene.render.resolution_percentage = 100
         scene.cycles.samples = PREVIEW_SAMPLES
         picks = [1,
-                 windows[0][1] + int(FLIGHT * APEX_AT),
-                 windows[1][1] + int(FLIGHT * APEX_AT),
-                 windows[2][1] + int(FLIGHT * 0.8),
+                 windows[0][1] + int(FLIGHT * APEX_AT) + APEX_HOLD // 2,
+                 windows[1][1] + int(FLIGHT * APEX_AT) + APEX_HOLD // 2,
+                 windows[2][1] + APEX_HOLD + int(FLIGHT * 0.8),
                  windows[3][2] - 2,
                  total]
         for f in picks[:KEY_FRAMES_TO_RENDER]:
@@ -372,7 +387,7 @@ def main():
     print(f"==== {SCRIPT} runtime report ====")
     print(f"  frames: {scene.frame_start} to {scene.frame_end} ({total} total) at {FPS} fps, {total / FPS:.1f} s of scroll")
     for name, s, e in windows:
-        print(f"  {name}: launch {s}, apex {s + int(FLIGHT * APEX_AT)}, contact {e}")
+        print(f"  {name}: launch {s}, apex {s + int(FLIGHT * APEX_AT)}, hold to {s + int(FLIGHT * APEX_AT) + APEX_HOLD}, contact {e}")
     print(f"  entry point (left of O, mid depth): {tuple(round(c, 3) for c in entry)}")
     print(f"  apex scale {APEX_SCALE}, contact scale {CONTACT_SCALE}: hat width at contact {0.28 * CONTACT_SCALE:.3f} m vs O diameter 0.200 m")
     print(f"  dissolve added to materials: {touched or 'already present'}")

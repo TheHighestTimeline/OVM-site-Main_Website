@@ -39,10 +39,10 @@ DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.20    # fraction of the flight spent lifting clear of the stack, tilting forward
 LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
-SEPARATE_LIFT = Vector((0.0, -0.32, 0.16))   # up and forward of the stack, so the spin happens in front of it
+SEPARATE_LIFT = Vector((0.0, -0.45, 0.16))   # up and forward of the stack, so the spin happens in front of it
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.45, -1.15, 0.20))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
+APEX_OFFSET = Vector((0.50, -0.85, 0.22))   # from the launch point: right, two hat lengths toward camera, a little up. The arc is in depth, not height.
 O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
 ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling

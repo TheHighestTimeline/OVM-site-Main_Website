@@ -24,7 +24,7 @@ SCRIPT = "05 hero still"
 HATS = ["socials", "content", "website", "branding", "founder"]   # top to bottom
 
 # ---------------------------------------------------------------- parameters
-STACK_GAP = -0.10             # world x overlap between the stack and the O's left edge. The stack sits forward, so it clears in depth
+STACK_GAP = 0.30              # world x gap between the stack's right edge and the O's left edge, about one hat width
 STACK_Y = -0.90               # the stack is this far toward the viewer from the mark, so the hats read large
 STACK_BASE_Z = -0.05          # bottom hat; the O sits a little above the stack's middle
 STACK_SPACING = 0.075          # nested like real stacked caps, brims clear of each other
@@ -274,7 +274,7 @@ def main():
     bpy.context.view_layer.update()
     logo_lo, logo_hi = world_bbox([logo])
     global STACK_X
-    STACK_X = logo_lo.x + STACK_GAP - 0.17       # stack centre: half a crown left of the O's edge plus the overlap
+    STACK_X = logo_lo.x - STACK_GAP - 0.17       # stack centre: the gap plus half a crown left of the O's edge
     hats = build_stack(base, seam_master, hats_col)
     hide_masters(base, seam_master)
     bpy.context.view_layer.update()      # fresh bounding boxes for the new objects

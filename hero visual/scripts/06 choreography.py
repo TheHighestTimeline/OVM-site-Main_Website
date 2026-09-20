@@ -54,10 +54,10 @@ APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 # spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
 # square on at the apex, where the word gets its read. (turns X, turns Z)
 CLIMB_SPIN = {
-    "socials":  (0.45, 0.10),
-    "content":  (0.35, 0.20),
-    "website":  (0.40, 0.15),
-    "branding": (0.25, 0.0),
+    "socials":  (0.22, 0.08),      # peaks around 80 degrees forward, never upside down
+    "content":  (0.18, 0.15),
+    "website":  (0.20, 0.10),
+    "branding": (0.14, 0.0),
 }
 
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)

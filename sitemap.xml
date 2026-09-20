@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://onevibemedia.shop/</loc>
+    <lastmod>2026-09-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <image:image><image:loc>https://onevibemedia.shop/og-image.jpg</image:loc><image:title>OneVibeMedia</image:title></image:image>
+    <image:image><image:loc>https://onevibemedia.shop/portfolio-live-lilitile.jpg</image:loc><image:title>LiLi Tile website by OneVibeMedia</image:title></image:image>
+    <image:image><image:loc>https://onevibemedia.shop/portfolio-live-tilearmor.jpg</image:loc><image:title>Tile Armor website by OneVibeMedia</image:title></image:image>
+    <image:image><image:loc>https://onevibemedia.shop/portfolio-live-dockbridge.jpg</image:loc><image:title>DockBridge SaaS website by OneVibeMedia</image:title></image:image>
+  </url>
+</urlset>

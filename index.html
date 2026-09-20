@@ -772,8 +772,9 @@ if(MOTION){
   gsap.set('.reveal',{opacity:0,y:18,filter:'blur(6px)'});
   let queue=[],flush=null;
   const io=new IntersectionObserver(entries=>{entries.forEach(en=>{if(en.isIntersecting){io.unobserve(en.target);queue.push(en.target)}});
-    if(queue.length&&!flush){flush=requestAnimationFrame(()=>{const b=queue;queue=[];flush=null;gsap.to(b,{opacity:1,y:0,filter:'blur(0px)',duration:.9,stagger:.09,ease:'power3.out',overwrite:true,clearProps:'filter',onComplete:()=>b.forEach(el=>el.classList.add('visible'))})})}},{threshold:.05,rootMargin:'0px 0px -6% 0px'});
-  document.querySelectorAll('.reveal').forEach(el=>{if(!el.closest('.pillar-content:not(.active)'))io.observe(el)});
+    if(queue.length&&!flush){flush=requestAnimationFrame(()=>{const b=queue;queue=[];flush=null;gsap.to(b,{opacity:1,y:0,filter:'blur(0px)',duration:.9,stagger:.09,ease:'power3.out',overwrite:'auto',clearProps:'filter',onComplete:()=>b.forEach(el=>el.classList.add('visible'))})})}},{threshold:.05,rootMargin:'0px 0px -6% 0px'});
+  gsap.set('.portfolio-carousel',{clearProps:'all'});document.querySelector('.portfolio-carousel').classList.add('visible');
+  document.querySelectorAll('.reveal').forEach(el=>{if(!el.closest('.pillar-content:not(.active)')&&!el.classList.contains('portfolio-carousel'))io.observe(el)});
   /* tiles inside hidden pillars animate in from showPillar instead */
   document.querySelectorAll('.pillar-content:not(.active) .reveal').forEach(r=>{gsap.set(r,{clearProps:'all'});r.classList.add('visible')});
 

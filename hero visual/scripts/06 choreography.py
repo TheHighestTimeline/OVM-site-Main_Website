@@ -190,10 +190,13 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
         if t <= SEPARATE_AT:
             # separation: lift straight off the stack, no rotation, until fully clear
             u = t / SEPARATE_AT
-            pos = launch_pos.lerp(clear_pos, u * u * (3.0 - 2.0 * u) * 0.5 + u * 0.5)   # eases out of rest, keeps speed
+            # height comes first so nothing below is touched, forward motion follows
+            rise = 1.0 - (1.0 - u) ** 2
+            fwd = u ** 1.6
+            pos = launch_pos + Vector((0.0, SEPARATE_LIFT.y * fwd, SEPARATE_LIFT.z * rise))
             scale = 1.0
-            # tilt forward as it lifts, brim dipping, the start of the roll
-            rot = Euler((-math.radians(LIFT_TILT_DEG) * u * u, 0.0, base_yaw), "XYZ")
+            # pitch forward as it lifts: the back rises and the crown rolls toward the viewer
+            rot = Euler((math.radians(LIFT_TILT_DEG) * u * u, 0.0, base_yaw), "XYZ")
             dissolve = 0.0
         elif t <= APEX_AT:
             u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
@@ -207,10 +210,10 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             # the roll continues from the lift tilt: total turn grows smoothly to cx turns
             # and then comes back to square. Skewed so the fast part is late, not at the start.
             spun = math.sin(min(1.0, u * 1.25) ** 1.3 * math.pi)   # peaks past the middle, fully square for the last fifth of the climb
-            lift_tilt = -math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
-            rot = Euler((tilt * smoothstep(u) + lift_tilt - cx * 2.0 * math.pi * spun,
+            lift_tilt = math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
+            rot = Euler((tilt * smoothstep(u) + lift_tilt + cx * 2.0 * math.pi * spun,
                          0.0,
-                         base_yaw * (1.0 - smoothstep(u)) - cz * 2.0 * math.pi * spun), "XYZ")
+                         base_yaw * (1.0 - smoothstep(u)) + cz * 2.0 * math.pi * spun), "XYZ")
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)

@@ -12,7 +12,7 @@
   const frameCount = Number(mobile ? section.dataset.mobileFrameCount : section.dataset.frameCount);
   const pad = (i) => String(i).padStart(4, "0");
   const src = (i) => framePath.replace("{i}", pad(i));
-  section.style.setProperty("--scroll-height", section.dataset.scrollHeight || "400vh");
+  section.style.setProperty("--scroll-height", (mobile && section.dataset.mobileScrollHeight) || section.dataset.scrollHeight || "400vh");
 
   // the scrub starts at data-start-frame so a still intro hold in the sequence costs no scroll
   const startFrame = Math.min(frameCount - 1, Math.max(0, Math.round(

@@ -13,6 +13,16 @@
   const pad = (i) => String(i).padStart(4, "0");
   const src = (i) => framePath.replace("{i}", pad(i));
   section.style.setProperty("--scroll-height", (mobile && section.dataset.mobileScrollHeight) || section.dataset.scrollHeight || "400vh");
+  if (mobile) {
+    // phones: the 16:9 frame is a short strip, so the section that follows (the headline block)
+    // rides inside the pinned box beneath it and the first screen is full while the hats play
+    const follower = section.nextElementSibling;
+    const sticky = section.querySelector(".scroll-hero__sticky");
+    if (follower && sticky && follower.classList.contains(section.dataset.mobilePull || "hero")) {
+      sticky.appendChild(follower);
+      follower.classList.add("scroll-hero__pulled");
+    }
+  }
 
   // the scrub starts at data-start-frame so a still intro hold in the sequence costs no scroll
   const startFrame = Math.min(frameCount - 1, Math.max(0, Math.round(

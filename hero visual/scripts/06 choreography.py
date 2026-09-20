@@ -39,10 +39,10 @@ DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.20    # fraction of the flight spent lifting clear of the stack, tilting forward
 LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
-SEPARATE_LIFT = Vector((0.0, -0.70, 0.16))   # up and well forward of the stack, so the spin happens in front of it
+SEPARATE_LIFT = Vector((0.40, -0.70, 0.16))  # up, forward, and already moving right, so the screen path never drifts left
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.50, -1.35, 0.22))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
+APEX_OFFSET = Vector((0.95, -1.35, 0.22))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
 O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
 ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
@@ -195,7 +195,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             # height comes first so nothing below is touched, forward motion follows
             rise = 1.0 - (1.0 - u) ** 2
             fwd = u ** 1.6
-            pos = launch_pos + Vector((0.0, SEPARATE_LIFT.y * fwd, SEPARATE_LIFT.z * rise))
+            pos = launch_pos + Vector((SEPARATE_LIFT.x * fwd, SEPARATE_LIFT.y * fwd, SEPARATE_LIFT.z * rise))
             scale = 1.0
             # the roll begins as it lifts, at the same steady pace it keeps to the apex
             cx, cz = CLIMB_SPIN[key]
@@ -205,7 +205,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
         elif t <= APEX_AT:
             u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
             # climb: clear point to apex, gentle curve toward camera
-            c1 = clear_pos + Vector((0.0, -0.05, 0.15))
+            c1 = clear_pos + Vector((0.20, -0.05, 0.15))
             c2 = apex + Vector((0.0, 0.10, 0.05))
             pos = bezier(clear_pos, c1, c2, apex, smoothstep(u))
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)

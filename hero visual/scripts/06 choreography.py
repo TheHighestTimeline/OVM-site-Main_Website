@@ -39,14 +39,14 @@ DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.20    # fraction of the flight spent lifting clear of the stack, tilting forward
 LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
-SEPARATE_LIFT = Vector((0.55, -0.90, 0.16))  # up, well forward, and already moving right, so the screen path never drifts left
+SEPARATE_LIFT = Vector((0.25, -0.90, 0.16))  # up, well forward, a little right: enough to cancel the perspective drift, no more
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.80, -1.15, 0.28))   # just beyond the separation point: the hat eases over the top there, then descends
+APEX_OFFSET = Vector((0.50, -1.15, 0.28))   # just beyond the separation point: the hat eases over the top there, then descends
 O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
 ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
-CONTACT_SCALE = 0.55                        # hat width 0.28 m times this is about 40 percent of the O's 0.40 m
+CONTACT_SCALE = 0.40                        # hat width 0.28 m times this is about 28 percent of the O, so it fits the ring's stroke
 APEX_TILT_DEG = 7.0
 LATERAL_JITTER = (0.00, 0.03, -0.02, 0.04)  # metres, per hat, same path not identical path
 APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
@@ -280,7 +280,8 @@ def main():
     o_centre = logo.matrix_world.translation
     ring_depth = logo.dimensions.y
     o_radius = O_RADIUS_HINT
-    entry = Vector((o_centre.x - o_radius - ENTRY_INSET, o_centre.y + ring_depth * 0.5, o_centre.z))
+    stroke_centre = o_radius * 0.835                          # midway across the ring's stroke
+    entry = Vector((o_centre.x - stroke_centre, o_centre.y - ring_depth * 0.5 - 0.02, o_centre.z))
 
     # rest state and stack positions come from 05
     rest = {h: (h.location.copy(), h.rotation_euler.copy(), h.scale.copy()) for h in hats}

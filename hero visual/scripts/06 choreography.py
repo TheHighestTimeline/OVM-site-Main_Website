@@ -37,8 +37,9 @@ LAUNCH_EVERY = 18     # hat N+1 launches when hat N is near its apex
 REVEAL = 16           # founder light ramp after the last absorption
 DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
-SEPARATE_AT = 0.16    # fraction of the flight spent lifting clear of the stack with no rotation
-SEPARATE_LIFT = Vector((0.0, -0.45, 0.14))   # up and clearly forward of the stack, so the spin happens in front of it
+SEPARATE_AT = 0.20    # fraction of the flight spent lifting clear of the stack, tilting forward
+LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
+SEPARATE_LIFT = Vector((0.0, -0.32, 0.16))   # up and forward of the stack, so the spin happens in front of it
 
 # ---------------------------------------------------------------- the arc
 APEX_OFFSET = Vector((0.45, -1.15, 0.20))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
@@ -53,10 +54,10 @@ APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 # spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
 # square on at the apex, where the word gets its read. (turns X, turns Z)
 CLIMB_SPIN = {
-    "socials":  (1.0, 0.25),
-    "content":  (0.5, 0.75),
-    "website":  (0.75, 0.5),
-    "branding": (0.5, 0.0),
+    "socials":  (0.75, 0.15),
+    "content":  (0.5, 0.35),
+    "website":  (0.6, 0.25),
+    "branding": (0.35, 0.0),
 }
 
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)
@@ -191,7 +192,8 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             u = t / SEPARATE_AT
             pos = launch_pos.lerp(clear_pos, u * u * (3.0 - 2.0 * u) * 0.5 + u * 0.5)   # eases out of rest, keeps speed
             scale = 1.0
-            rot = Euler((0.0, 0.0, base_yaw), "XYZ")
+            # tilt forward as it lifts, brim dipping, the start of the roll
+            rot = Euler((-math.radians(LIFT_TILT_DEG) * u * u, 0.0, base_yaw), "XYZ")
             dissolve = 0.0
         elif t <= APEX_AT:
             u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
@@ -202,8 +204,11 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)
             # spin starts now, and unwinds to zero at the apex so the hat settles square
             cx, cz = CLIMB_SPIN[key]
-            spun = math.sin(u * math.pi)          # zero at both ends, so it starts and stops smoothly
-            rot = Euler((tilt * smoothstep(u) - cx * 2.0 * math.pi * spun,
+            # the roll continues from the lift tilt: total turn grows smoothly to cx turns
+            # and then comes back to square. Skewed so the fast part is late, not at the start.
+            spun = math.sin(u ** 1.6 * math.pi)
+            lift_tilt = -math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
+            rot = Euler((tilt * smoothstep(u) + lift_tilt - cx * 2.0 * math.pi * spun,
                          0.0,
                          base_yaw * (1.0 - smoothstep(u)) - cz * 2.0 * math.pi * spun), "XYZ")
             dissolve = 0.0

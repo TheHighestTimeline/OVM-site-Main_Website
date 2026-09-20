@@ -32,6 +32,8 @@ MOBILE_STEP = 2
 WEBP_QUALITY = 82
 BUDGET_MB = 7.0
 ESTIMATE_ONLY = os.environ.get("HATHERO_ESTIMATE_ONLY") == "1"
+SKIP_PROBE = os.environ.get("HATHERO_SKIP_PROBE") == "1"     # resuming: the estimate is already known
+KEEP_PNG = os.environ.get("HATHERO_KEEP_PNG") == "1"         # the PNGs are working files; WebP is what ships
 ENGINE = os.environ.get("HATHERO_ENGINE", "CYCLES").upper()
 
 
@@ -87,6 +89,25 @@ def to_webp(png_path, webp_path):
     return os.path.getsize(webp_path)
 
 
+def render_set(scene, frames, out_dir):
+    """Render each (index, frame) to out_dir as WebP, skipping ones already there, so a stopped run resumes."""
+    total_bytes, done, skipped = 0, 0, 0
+    for i, f in frames:
+        webp = os.path.join(out_dir, f"frame_{i:04d}.webp")
+        if os.path.exists(webp):
+            total_bytes += os.path.getsize(webp)
+            skipped += 1
+            continue
+        png = webp[:-5] + ".png"
+        dt = render_frame(scene, f, png)
+        total_bytes += to_webp(png, webp)
+        if not KEEP_PNG:
+            os.remove(png)
+        done += 1
+        print(f"  frame {i:04d} (scene frame {f}) {dt:.0f} s -> {webp}", flush=True)
+    return total_bytes, done, skipped
+
+
 def main():
     if os.environ.get("HATHERO_RENDER_SEQUENCE") != "1":
         print(f"[{SCRIPT}] skipped. Set HATHERO_RENDER_SEQUENCE=1 to render the frame sequence (hours of GPU time).")
@@ -104,51 +125,48 @@ def main():
 
     # measure one frame, then estimate
     setup(scene, FULL_WIDTH, FULL_HEIGHT)
+    if SKIP_PROBE:
+        print("  HATHERO_SKIP_PROBE=1, resuming without the estimate")
     probe_frame = scene.frame_start + total // 2
-    probe_png = os.path.join(frames_dir, "probe.png")
-    dt = render_frame(scene, probe_frame, probe_png)
-    probe_webp = os.path.join(frames_dir, "probe.webp")
-    size = to_webp(probe_png, probe_webp)
-    est_mb = size * total / 1e6
-    est_mobile_mb = size * (MOBILE_WIDTH / FULL_WIDTH) ** 2 * mobile_total / 1e6
-    print(f"  probe frame {probe_frame}: {dt:.1f} s, WebP {size / 1e3:.0f} KB")
-    print(f"  estimate: desktop {total} frames about {dt * total / 60:.0f} min, {est_mb:.1f} MB "
-          f"({'clears' if est_mb <= BUDGET_MB else 'OVER'} the {BUDGET_MB:.0f} MB budget)")
-    print(f"  estimate: mobile {mobile_total} frames about {dt * (MOBILE_WIDTH / FULL_WIDTH) ** 2 * mobile_total / 60:.0f} min, {est_mobile_mb:.1f} MB")
-    if est_mb > BUDGET_MB:
-        needed = int(BUDGET_MB * 1e6 / size)
-        print(f"  to clear the budget at this width: {needed} frames, or a narrower render. I would drop frames before width.")
-    for p in (probe_png, probe_webp):
-        os.remove(p)
-    if ESTIMATE_ONLY:
-        print("  HATHERO_ESTIMATE_ONLY=1, stopping before the sequence")
-        return
+    if not SKIP_PROBE:
+        probe_png = os.path.join(frames_dir, "probe.png")
+        dt = render_frame(scene, probe_frame, probe_png)
+        probe_webp = os.path.join(frames_dir, "probe.webp")
+        size = to_webp(probe_png, probe_webp)
+        est_mb = size * total / 1e6
+        est_mobile_mb = size * (MOBILE_WIDTH / FULL_WIDTH) ** 2 * mobile_total / 1e6
+        print(f"  probe frame {probe_frame}: {dt:.1f} s, WebP {size / 1e3:.0f} KB")
+        print(f"  estimate: desktop {total} frames about {dt * total / 60:.0f} min, {est_mb:.1f} MB "
+              f"({'clears' if est_mb <= BUDGET_MB else 'OVER'} the {BUDGET_MB:.0f} MB budget)")
+        print(f"  estimate: mobile {mobile_total} frames about {dt * (MOBILE_WIDTH / FULL_WIDTH) ** 2 * mobile_total / 60:.0f} min, {est_mobile_mb:.1f} MB")
+        if est_mb > BUDGET_MB:
+            needed = int(BUDGET_MB * 1e6 / size)
+            print(f"  to clear the budget at this width: {needed} frames, or a narrower render. I would drop frames before width.")
+        for p in (probe_png, probe_webp):
+            os.remove(p)
+        if ESTIMATE_ONLY:
+            print("  HATHERO_ESTIMATE_ONLY=1, stopping before the sequence")
+            return
 
     # desktop set
     t0 = time.time()
-    total_bytes = 0
-    for f in range(scene.frame_start, scene.frame_end + 1):
-        png = os.path.join(frames_dir, f"frame_{f - scene.frame_start:04d}.png")
-        render_frame(scene, f, png)
-        total_bytes += to_webp(png, png[:-4] + ".webp")
+    desktop = [(f - scene.frame_start, f) for f in range(scene.frame_start, scene.frame_end + 1)]
+    total_bytes, d_done, d_skipped = render_set(scene, desktop, frames_dir)
     desktop_time = time.time() - t0
     # mobile set
     setup(scene, MOBILE_WIDTH, int(MOBILE_WIDTH * FULL_HEIGHT / FULL_WIDTH))
     t1 = time.time()
-    mobile_bytes = 0
-    for i, f in enumerate(range(scene.frame_start, scene.frame_end + 1, MOBILE_STEP)):
-        png = os.path.join(mobile_dir, f"frame_{i:04d}.png")
-        render_frame(scene, f, png)
-        mobile_bytes += to_webp(png, png[:-4] + ".webp")
+    mobile = list(enumerate(range(scene.frame_start, scene.frame_end + 1, MOBILE_STEP)))
+    mobile_bytes, m_done, m_skipped = render_set(scene, mobile, mobile_dir)
     mobile_time = time.time() - t1
     setup(scene, FULL_WIDTH, FULL_HEIGHT)
     scene.frame_set(scene.frame_start)
 
     print("")
     print(f"==== {SCRIPT} runtime report ====")
-    print(f"  desktop: {total} frames, {FULL_WIDTH}x{FULL_HEIGHT}, {desktop_time / 60:.1f} min, WebP payload {total_bytes / 1e6:.2f} MB "
+    print(f"  desktop: {total} frames ({d_done} rendered, {d_skipped} already there), {FULL_WIDTH}x{FULL_HEIGHT}, {desktop_time / 60:.1f} min, WebP payload {total_bytes / 1e6:.2f} MB "
           f"({'clears' if total_bytes / 1e6 <= BUDGET_MB else 'OVER'} budget)")
-    print(f"  mobile: {mobile_total} frames, {MOBILE_WIDTH} px wide, {mobile_time / 60:.1f} min, WebP payload {mobile_bytes / 1e6:.2f} MB")
+    print(f"  mobile: {mobile_total} frames ({m_done} rendered, {m_skipped} already there), {MOBILE_WIDTH} px wide, {mobile_time / 60:.1f} min, WebP payload {mobile_bytes / 1e6:.2f} MB")
     print(f"  frames in {frames_dir} and {mobile_dir}, pattern frame_NNNN.webp")
     print("=================================")
 

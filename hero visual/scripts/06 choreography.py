@@ -39,10 +39,10 @@ DISSOLVE_FRAMES = 7
 APEX_AT = 0.45        # fraction of the flight where the apex sits
 SEPARATE_AT = 0.20    # fraction of the flight spent lifting clear of the stack, tilting forward
 LIFT_TILT_DEG = 22.0  # forward tilt reached by the end of the lift
-SEPARATE_LIFT = Vector((0.0, -0.45, 0.16))   # up and forward of the stack, so the spin happens in front of it
+SEPARATE_LIFT = Vector((0.0, -0.70, 0.16))   # up and well forward of the stack, so the spin happens in front of it
 
 # ---------------------------------------------------------------- the arc
-APEX_OFFSET = Vector((0.50, -0.85, 0.22))   # from the launch point: right, two hat lengths toward camera, a little up. The arc is in depth, not height.
+APEX_OFFSET = Vector((0.50, -1.35, 0.22))   # from the launch point: right, well toward camera, a little up. The arc is in depth, not height.
 O_RADIUS_HINT = 0.20                        # outer radius of the ring from 04
 ENTRY_INSET = -0.02                         # the hat's centre stops just outside the ring's left face: it dissolves into the side, never into the hole
 APEX_SCALE = 1.0      # size comes from being nearer the camera, not from scaling
@@ -54,10 +54,10 @@ APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 # spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
 # square on at the apex, where the word gets its read. (turns X, turns Z)
 CLIMB_SPIN = {
-    "socials":  (0.75, 0.15),
-    "content":  (0.5, 0.35),
-    "website":  (0.6, 0.25),
-    "branding": (0.35, 0.0),
+    "socials":  (0.45, 0.10),
+    "content":  (0.35, 0.20),
+    "website":  (0.40, 0.15),
+    "branding": (0.25, 0.0),
 }
 
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)
@@ -209,7 +209,7 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             cx, cz = CLIMB_SPIN[key]
             # the roll continues from the lift tilt: total turn grows smoothly to cx turns
             # and then comes back to square. Skewed so the fast part is late, not at the start.
-            spun = math.sin(min(1.0, u * 1.25) ** 1.3 * math.pi)   # peaks past the middle, fully square for the last fifth of the climb
+            spun = math.sin(min(1.0, u * 1.25) * math.pi)          # even roll, fully square for the last fifth of the climb
             lift_tilt = math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
             rot = Euler((tilt * smoothstep(u) + lift_tilt + cx * 2.0 * math.pi * spun,
                          0.0,

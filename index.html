@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="256x256" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <title>OneVibeMedia | Premium Media & Marketing Systems</title>
     <meta name="description" content="OneVibeMedia delivers premium web development, content creation, SEO, and social media systems designed to elevate your digital presence.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,7 +47,8 @@
         .mobile-toggle span{width:18px;height:1.5px;background:var(--white)}
 
         /* SCROLL HERO: frame sequence on a canvas, scrubbed by scroll. Frames in "hero visual/frames" */
-        .scroll-hero{position:relative;height:var(--scroll-height,400vh);background:var(--bg,#050507)}
+        .scroll-hero{position:relative;height:var(--scroll-height,400vh);padding:0;background:var(--bg,#050507)}
+        .scroll-hero + .hero{margin-top:-20vh;padding-top:0}   /* the heading tucks into the empty band under the hats as the canvas slides away */
         .scroll-hero__sticky{position:sticky;top:0;height:100vh;display:grid;place-items:center;overflow:hidden}
         .scroll-hero__canvas{width:100%;max-width:1600px;height:auto;display:block}
         @media (prefers-reduced-motion:reduce){.scroll-hero{height:auto}.scroll-hero__sticky{height:auto}}
@@ -233,7 +236,7 @@
 <!-- NAV -->
 <nav>
     <a href="#top" class="nav-brand" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-        <img src="logo.png" alt="OneVibeMedia">
+        <img src="assets/brand/wordmark stone.png" alt="OneVibeMedia">
     </a>
     <div class="nav-links" id="navLinks">
         <a href="#top" onclick="window.scrollTo({top:0,behavior:'smooth'})">Home</a>
@@ -499,7 +502,7 @@
 <footer>
     <div class="footer-inner">
         <div class="footer-brand">
-            <img src="logo.png" alt="OVM">
+            <img src="assets/brand/wordmark stone.png" alt="OVM">
         </div>
         <div class="footer-links">
             <a href="#solutions">Services</a>

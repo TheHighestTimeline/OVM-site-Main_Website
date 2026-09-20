@@ -53,11 +53,13 @@ APEX_HEIGHT_JITTER = (0.00, -0.03, 0.04, -0.02)
 
 # spin on the climb: the hat tumbles as soon as it leaves the stack and unwinds to
 # square on at the apex, where the word gets its read. (turns X, turns Z)
+# One steady forward roll from lift off to apex, at constant pace, completing whole
+# turns so the hat lands square for the read. (turns X, turns Z)
 CLIMB_SPIN = {
-    "socials":  (0.45, 0.08),      # peaks almost upside down late in the climb, then unwinds square
-    "content":  (0.40, 0.15),
-    "website":  (0.42, 0.10),
-    "branding": (0.30, 0.0),
+    "socials":  (1.0, 0.0),
+    "content":  (1.0, 0.0),
+    "website":  (1.0, 0.0),
+    "branding": (1.0, 0.0),
 }
 
 # rotation on the descent, per the handbook table: (turns X, turns Y, turns Z, wobble amplitude deg)
@@ -195,8 +197,10 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             fwd = u ** 1.6
             pos = launch_pos + Vector((0.0, SEPARATE_LIFT.y * fwd, SEPARATE_LIFT.z * rise))
             scale = 1.0
-            # pitch forward as it lifts: the back rises and the crown rolls toward the viewer
-            rot = Euler((math.radians(LIFT_TILT_DEG) * u * u, 0.0, base_yaw), "XYZ")
+            # the roll begins as it lifts, at the same steady pace it keeps to the apex
+            cx, cz = CLIMB_SPIN[key]
+            progress = t / APEX_AT                       # 0 at launch, 1 at the apex
+            rot = Euler((cx * 2.0 * math.pi * progress, 0.0, base_yaw), "XYZ")
             dissolve = 0.0
         elif t <= APEX_AT:
             u = (t - SEPARATE_AT) / (APEX_AT - SEPARATE_AT)
@@ -207,13 +211,16 @@ def flight_keys(hat, index, launch_pos, entry, cam_pos, base_yaw):
             scale = 1.0 + (APEX_SCALE - 1.0) * smoothstep(u)
             # spin starts now, and unwinds to zero at the apex so the hat settles square
             cx, cz = CLIMB_SPIN[key]
-            # the roll continues from the lift tilt: total turn grows smoothly to cx turns
-            # and then comes back to square. Skewed so the fast part is late, not at the start.
-            spun = math.sin(u ** 1.25 * math.pi)                    # peaks late in the climb, square exactly at the apex
-            lift_tilt = math.radians(LIFT_TILT_DEG) * (1.0 - smoothstep(u))
-            rot = Euler((tilt * smoothstep(u) + lift_tilt + cx * 2.0 * math.pi * spun,
+            # constant pace, eased only over the final few frames so it settles rather than stops dead
+            progress = t / APEX_AT
+            settle = 1.0 - (1.0 - u) ** 3 if u > 0.75 else None
+            angle = cx * 2.0 * math.pi * progress
+            if settle is not None:
+                target = cx * 2.0 * math.pi
+                angle = angle + (target - angle) * ((u - 0.75) / 0.25) ** 2
+            rot = Euler((tilt * smoothstep(u) + angle,
                          0.0,
-                         base_yaw * (1.0 - smoothstep(u)) + cz * 2.0 * math.pi * spun), "XYZ")
+                         base_yaw * (1.0 - smoothstep(u)) + cz * 2.0 * math.pi * progress), "XYZ")
             dissolve = 0.0
         else:
             u = (t - APEX_AT) / (1.0 - APEX_AT)

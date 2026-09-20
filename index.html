@@ -201,6 +201,9 @@
         .pf-card:hover .pf-link{color:var(--accent-bright)}
 
         /* PORTFOLIO FINE */
+        .pf-dots{display:none;justify-content:center;gap:8px;margin-top:14px}
+        .pf-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);border:0;padding:0;cursor:pointer;transition:background .3s,transform .3s}
+        .pf-dot.active{background:var(--accent2);transform:scale(1.35)}
         .portfolio-fine{margin-top:8px;font-size:13px;color:var(--dim);font-weight:300}
         .portfolio-fine a{color:var(--off);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);transition:color .3s,border-color .3s}
         .portfolio-fine a:hover{color:var(--accent2);border-color:var(--accent-border)}
@@ -241,7 +244,11 @@
             .flip-front{position:relative}.flip-back{position:relative;transform:none;display:none}
             .flip-card.flipped .flip-front{display:none}.flip-card.flipped .flip-back{display:flex}
             .form-grid{grid-template-columns:1fr;gap:32px}
-            .pf-card{width:280px}
+            /* phones: one card at a time, centred, snapping per swipe, next card peeking in, dots below */
+            .portfolio-carousel{scroll-snap-type:x mandatory;gap:14px;margin:28px 0 0;padding:8px calc((100% - min(82vw,320px)) / 2) 12px;scrollbar-width:none}
+            .portfolio-carousel::-webkit-scrollbar{display:none}
+            .pf-card{width:min(82vw,320px);scroll-snap-align:center}
+            .pf-dots{display:flex}
             .enterprise-card{padding:36px 24px}
         }
         @media(max-width:640px){.tiles-grid{grid-template-columns:1fr}}
@@ -370,6 +377,7 @@
                 </div>
             </a>
         </div>
+        <div class="pf-dots" aria-hidden="true"></div>
         <p class="portfolio-fine reveal">Want the full creative deck covering web, 3D, event, and enterprise work? <a href="ovmg-creative-portfolio.pdf" target="_blank" rel="noopener">View the Portfolio PDF</a></p>
     </div>
 </section>
@@ -553,6 +561,7 @@
 <script>
 const obs=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})},{threshold:.08,rootMargin:'0px 0px -30px 0px'});
 document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+(function(){const track=document.querySelector('.portfolio-carousel'),dots=document.querySelector('.pf-dots');if(!track||!dots)return;const cards=[...track.children];cards.forEach((c,i)=>{const d=document.createElement('button');d.className='pf-dot'+(i?'':' active');d.type='button';d.setAttribute('aria-label','Project '+(i+1));d.addEventListener('click',()=>c.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));dots.appendChild(d)});let raf=0;track.addEventListener('scroll',()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;const mid=track.getBoundingClientRect().left+track.clientWidth/2;let best=0,bd=1e9;cards.forEach((c,i)=>{const r=c.getBoundingClientRect();const d=Math.abs(r.left+r.width/2-mid);if(d<bd){bd=d;best=i}});dots.querySelectorAll('.pf-dot').forEach((d,i)=>d.classList.toggle('active',i===best))})},{passive:true})})();
 document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t){t.scrollIntoView({behavior:'smooth'});document.getElementById('navLinks').classList.remove('open')}})});
 function showPillar(id,el){document.querySelectorAll('.pillar-tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.pillar-content').forEach(c=>c.classList.remove('active'));document.getElementById('pillar-'+id).classList.add('active');el.classList.add('active');document.querySelectorAll('#pillar-'+id+' .reveal:not(.visible)').forEach(el=>obs.observe(el))}
 function fillForm(cat,pkg){const c=document.getElementById('formCategory'),p=document.getElementById('formPackage');if(cat){for(let o of c.options){if(o.textContent===cat||o.textContent.includes(cat)){c.value=o.value;break}}}if(pkg){for(let o of p.options){if(o.textContent===pkg){p.value=o.value;break}}}document.getElementById('contact').scrollIntoView({behavior:'smooth'});document.getElementById('navLinks').classList.remove('open')}

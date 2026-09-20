@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OVM Hat Hero</title>
+<style>
+  :root { --hero-bg: #0a0b0f; }
+  html, body { margin: 0; background: var(--hero-bg); }
+  .scroll-hero { position: relative; height: var(--scroll-height, 400vh); }
+  .scroll-hero__sticky { position: sticky; top: 0; height: 100vh; display: grid; place-items: center; overflow: hidden; }
+  .scroll-hero__canvas { width: 100%; max-width: 1600px; height: auto; display: block; }
+  .scroll-hero__still { width: 100%; max-width: 1600px; display: block; }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-hero { height: auto; }
+    .scroll-hero__canvas { display: none; }
+  }
+</style>
+</head>
+<body>
+<section class="scroll-hero" id="hat-hero"
+         data-frame-path="frames/frame_{i}.webp"
+         data-frame-count="142"
+         data-mobile-frame-path="frames/mobile/frame_{i}.webp"
+         data-mobile-frame-count="71"
+         data-mobile-max-width="900"
+         data-scroll-height="400vh"
+         data-width="1600" data-height="900">
+  <div class="scroll-hero__sticky">
+    <canvas class="scroll-hero__canvas" width="1600" height="900" aria-label="OneVibeMedia hats lifting into the stone logo"></canvas>
+  </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+<script src="hero scroll.js"></script>
+</body>
+</html>

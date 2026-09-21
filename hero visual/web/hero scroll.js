@@ -28,15 +28,18 @@
   const startFrame = Math.min(frameCount - 1, Math.max(0, Math.round(
     Number(section.dataset.startFrame || 0) * (mobile ? Number(section.dataset.mobileFrameCount) / Number(section.dataset.frameCount) : 1))));
 
-  // the caption fades in from data-reveal-frame over data-reveal-fade frames (desktop frame numbers)
+  // after the last frame the scroll keeps going a little: a hold on the founder, then the caption
+  // slides in from the side. Fractions of the section's scroll distance, overridable on the section.
   const caption = section.querySelector(".scroll-hero__caption");
-  const ratio = mobile ? Number(section.dataset.mobileFrameCount) / Number(section.dataset.frameCount) : 1;
-  const revealFrame = Number(section.dataset.revealFrame || frameCount) * ratio;
-  const revealFade = Math.max(1, Number(section.dataset.revealFade || 8) * ratio);
-  function caption_at(frame) {
+  const holdPart = Number(section.dataset.holdPart || 0.06);
+  const captionPart = Number(section.dataset.captionPart || 0.12);
+  const framesPart = Math.max(0.5, 1 - holdPart - captionPart);
+  const slideFrom = Number(section.dataset.captionSlide || -70);   // px, negative comes in from the left
+  function caption_at(t) {
     if (!caption) return;
-    const t = Math.min(1, Math.max(0, (frame - revealFrame) / revealFade));
-    caption.style.opacity = (t * t * (3 - 2 * t)).toFixed(3);
+    const e = t * t * (3 - 2 * t);
+    caption.style.opacity = e.toFixed(3);
+    caption.style.transform = "translateX(" + ((1 - e) * slideFrom).toFixed(1) + "px)";
   }
 
   const frames = new Array(frameCount);
@@ -70,7 +73,7 @@
     // a single final frame, no scroll section
     load(frameCount - 1).then(() => draw(frameCount - 1));
     canvas.style.display = "block";
-    caption_at(frameCount - 1);
+    caption_at(1);
     return;
   }
 
@@ -81,11 +84,13 @@
   // scrub is live from the start; frames that have not arrived yet fall back to the nearest loaded one
   if (!window.gsap || !window.ScrollTrigger) { console.warn("scroll hero: GSAP or ScrollTrigger missing, showing the first frame only"); return; }
   gsap.registerPlugin(ScrollTrigger);
-  const state = { frame: startFrame };
-  gsap.to(state, {
-    frame: frameCount - 1,
-    ease: "none",
+  const state = { frame: startFrame, cap: 0 };
+  caption_at(0);
+  const tl = gsap.timeline({
     scrollTrigger: { trigger: section, start: "top top", end: "bottom bottom", scrub: true },
-    onUpdate: () => { draw(Math.round(state.frame)); caption_at(state.frame); },
+    defaults: { ease: "none" },
   });
+  tl.to(state, { frame: frameCount - 1, duration: framesPart, onUpdate: () => draw(Math.round(state.frame)) })
+    .to({}, { duration: holdPart })                                   // the founder alone, a beat
+    .to(state, { cap: 1, duration: captionPart, onUpdate: () => caption_at(state.cap) });
 })();

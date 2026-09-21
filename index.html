@@ -31,7 +31,10 @@
         }
         *{margin:0;padding:0;box-sizing:border-box}
         html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--white);font-family:'Sora',-apple-system,sans-serif;overflow-x:hidden;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+        /* no sideways scroll of the page itself, on Safari too: it needs the rule on html as well as body */
+        html{overflow-x:hidden;overflow-x:clip;width:100%}
+        body{background:var(--bg);color:var(--white);font-family:'Sora',-apple-system,sans-serif;overflow-x:hidden;overflow-x:clip;width:100%;position:relative;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+        section{max-width:100%}
         ::selection{background:rgba(77,139,245,0.3)}
 
         /* NAV */

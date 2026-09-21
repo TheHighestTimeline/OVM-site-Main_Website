@@ -10,6 +10,19 @@
   .scroll-hero { position: relative; height: var(--scroll-height, 400vh); }
   .scroll-hero__sticky { position: sticky; top: 0; height: 100vh; display: grid; place-items: center; overflow: hidden; }
   .scroll-hero__canvas { width: 100%; max-width: 1600px; height: auto; display: block; }
+  .scroll-hero__frame{position:relative;width:100%;max-width:1600px}
+  .scroll-hero__caption{position:absolute;left:0.5%;width:16%;top:79%;text-align:center;opacity:0;pointer-events:none;will-change:opacity}
+  .scroll-hero__line{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:clamp(20px,2.1vw,34px);line-height:1.15;letter-spacing:-0.5px;color:#fff;margin:0}
+  .scroll-hero__sub{font-family:'Sora',sans-serif;font-weight:300;font-size:clamp(12px,1vw,16px);line-height:1.6;color:#9aa0aa;margin:10px 0 0}
+  @media (max-width:900px){
+    /* phones: the 16:9 frame is short, so pin it just under the nav, caption in flow beneath it, shorter scroll */
+    .scroll-hero__sticky{height:auto;min-height:0;padding-top:76px;display:block}
+    .scroll-hero__frame{max-width:none}
+    .scroll-hero__caption{position:static;left:auto;top:auto;width:auto;text-align:center;padding:12px 20px 0;min-height:84px}
+    .scroll-hero__line{font-size:clamp(22px,6.5vw,30px)}
+    .scroll-hero__sub{font-size:13px}
+    .scroll-hero + .hero{margin-top:-30vh;padding-top:0}
+  }
   .scroll-hero__still { width: 100%; max-width: 1600px; display: block; }
   @media (prefers-reduced-motion: reduce) {
     .scroll-hero { height: auto; }
@@ -24,14 +37,22 @@
          data-mobile-frame-path="frames/mobile/frame_{i}.webp"
          data-mobile-frame-count="71"
          data-mobile-max-width="900"
-         data-scroll-height="400vh"
+         data-start-frame="8"
+       data-reveal-frame="128" data-reveal-fade="10"
+         data-scroll-height="400vh" data-mobile-scroll-height="230vh"
          data-width="1600" data-height="900">
   <div class="scroll-hero__sticky">
+      <div class="scroll-hero__frame">
     <canvas class="scroll-hero__canvas" width="1600" height="900" aria-label="OneVibeMedia hats lifting into the stone logo"></canvas>
+          <div class="scroll-hero__caption" aria-live="polite">
+              <p class="scroll-hero__line">You wear a lot<br>of hats.</p>
+              <p class="scroll-hero__sub">Let us take a few off your hands.</p>
+          </div>
+      </div>
   </div>
 </section>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
 <script src="hero scroll.js"></script>
 </body>
 </html>

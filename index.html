@@ -909,19 +909,19 @@ let W=0,H=0,stars=[],dust=[],segs=[],chains=[],chain=null,state='idle',anim={ali
 function size(){const r=hero.getBoundingClientRect();W=Math.max(1,Math.round(r.width));H=Math.max(1,Math.round(r.height));const DPR=Math.min(2,devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
   const c=hero.querySelector('.hero-content').getBoundingClientRect();bandTop=c.bottom-r.top+22;bandH=Math.max(70,H-bandTop-28);textW=Math.min(W-32,780);
   seed();targets()}
-function seed(){const n=Math.round(W*H/8000);stars=[];for(let i=0;i<n;i++)stars.push({x:rnd(0,W),y:rnd(0,H),r:rnd(.35,1.5),a:rnd(.25,.9),ph:rnd(0,6.28),tw:rnd(.3,1.2),vx:rnd(-.025,.025),vy:rnd(-.018,.018),g:0});
-  dust=[];for(let i=0;i<820;i++)dust.push({hx:rnd(0,W),hy:rnd(H*.4,H),x:0,y:0,tx:0,ty:0,r:rnd(.45,.85),a:rnd(.07,.2),ph:rnd(0,6.28),has:false,d:0})}
+function seed(){const n=Math.round(W*H/4200);stars=[];for(let i=0;i<n;i++)stars.push({x:rnd(0,W),y:rnd(0,H),r:rnd(.35,1.5),a:rnd(.25,.9),ph:rnd(0,6.28),tw:rnd(.3,1.2),vx:rnd(-.025,.025),vy:rnd(-.018,.018),g:0});
+  dust=[];for(let i=0;i<1500;i++)dust.push({hx:rnd(0,W),hy:rnd(H*.4,H),x:0,y:0,tx:0,ty:0,r:rnd(.45,.85),a:rnd(.07,.2),ph:rnd(0,6.28),has:false,d:0})}
 function targets(){const off=document.createElement('canvas');off.width=W;off.height=H;const o=off.getContext('2d');
-  let fs=Math.min(56,bandH/2.5);const font=s=>`italic 300 ${s}px "Cormorant Garamond", Georgia, serif`;o.font=font(fs);o.textAlign='center';o.textBaseline='middle';o.fillStyle='#fff';
+  let fs=Math.min(60,bandH/2.4);const font=s=>`italic 300 ${s}px "Cormorant Garamond", Georgia, serif`;o.font=font(fs);o.textAlign='center';o.textBaseline='middle';o.fillStyle='#fff';
   const widest=Math.max(...LINES.map(l=>o.measureText(l).width));if(widest>textW){fs=fs*textW/widest;o.font=font(fs)}
   const lh=fs*1.1,y0=bandTop+(bandH-lh*LINES.length)/2+lh/2;LINES.forEach((l,i)=>o.fillText(l,W/2,y0+i*lh));
-  const step=Math.max(3,Math.round(fs/14));const img=o.getImageData(0,0,W,H).data;let pts=[];
+  const step=Math.max(2,Math.round(fs/19));const img=o.getImageData(0,0,W,H).data;let pts=[];
   for(let y=Math.floor(bandTop);y<H;y+=step)for(let x=0;x<W;x+=step){if(img[(y*W+x)*4+3]>110)pts.push({x:x+rnd(-.7,.7),y:y+rnd(-.7,.7)})}
   if(pts.length>dust.length){const k=pts.length/dust.length;pts=pts.filter((p,i)=>Math.floor(i/k)!==Math.floor((i-1)/k))}
   pts.sort((a,b)=>a.x-b.x);const ds=dust.slice().sort((a,b)=>a.hx-b.hx);const minx=pts.length?pts[0].x:0,maxx=pts.length?pts[pts.length-1].x:1;
   ds.forEach((d,i)=>{if(i<pts.length){d.tx=pts[i].x;d.ty=pts[i].y;d.has=true;d.d=(d.tx-minx)/Math.max(1,maxx-minx)}else{d.has=false;d.tx=d.hx;d.ty=d.hy;d.d=0}d.x=d.hx;d.y=d.hy});
   /* the line through the letters: nearest-neighbour walk, jumping without drawing when the next dot is far */
-  segs=[];const left=pts.slice();const seen=new Set();let cur=left[0];const near=step*2.1;
+  segs=[];const left=pts.slice();const seen=new Set();let cur=left[0];const near=step*2.3;
   while(cur){seen.add(cur);let best=null,bd=1e9;for(const p of left){if(seen.has(p))continue;const dd=dist(cur,p);if(dd<bd){bd=dd;best=p}}
     if(!best)break;if(bd<=near)segs.push([cur,best]);cur=best}}
 

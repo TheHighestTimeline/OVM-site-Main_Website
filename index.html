@@ -943,18 +943,24 @@ function targets(){const off=document.createElement('canvas');off.width=W;off.he
       const B=p2+p3+p4+p5+p6+p7+p8+p9;if(B<2||B>6)continue;const seq=[p2,p3,p4,p5,p6,p7,p8,p9,p2];let A=0;for(let i=0;i<8;i++)if(seq[i]===0&&seq[i+1]===1)A++;if(A!==1)continue;
       if(pass===0){if(p2*p4*p6!==0||p4*p6*p8!==0)continue}else{if(p2*p4*p8!==0||p2*p6*p8!==0)continue}del.push(y*bw+x)}
     if(del.length){changed=true;for(const i of del)m[i]=0}}if(!changed)break}
-  for(let k=0;k<1;k++){const ends=[];for(let y=1;y<bh-1;y++)for(let x=1;x<bw-1;x++){if(!m[y*bw+x])continue;let n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if((i||j)&&at(x+i,y+j))n++;if(n<=1)ends.push(y*bw+x)}for(const i of ends)m[i]=0}
+  for(let k=0;k<0;k++){const ends=[];for(let y=1;y<bh-1;y++)for(let x=1;x<bw-1;x++){if(!m[y*bw+x])continue;let n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if((i||j)&&at(x+i,y+j))n++;if(n<=1)ends.push(y*bw+x)}for(const i of ends)m[i]=0}
   /* stars spaced evenly along the centreline, then edges between close neighbours = one line through the stars */
   const cell=step,grid=new Map();const key=(x,y)=>((x/cell)|0)+','+((y/cell)|0);
   const near=(x,y,r)=>{const gx=(x/cell)|0,gy=(y/cell)|0;for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const b=grid.get((gx+i)+','+(gy+j));if(!b)continue;for(const w of b){if(Math.hypot(w.tx-x,w.ty-y)<r)return true}}return false};
+  const addStar=(px,py)=>{const ang=rnd(0,6.28),rad=rnd(14,70);const w={tx:px,ty:py,hx:cl(px+Math.cos(ang)*rad,2,W-2),hy:cl(py+Math.sin(ang)*rad,bandTop-30,H-2),x:0,y:0,r:rnd(.55,1),a:rnd(.25,.6),ph:rnd(0,6.28),d:Math.random()};
+    words.push(w);const k=key(px,py);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(w)};
+  for(let y=1;y<bh-1;y++)for(let x=1;x<bw-1;x++){if(!m[y*bw+x])continue;let n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if((i||j)&&at(x+i,y+j))n++;if((n===1||n>=3)&&!near(x,y+y0b,step*.55))addStar(x,y+y0b)}
   for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){if(!m[y*bw+x])continue;const px=x,py=y+y0b;if(near(px,py,step*.9))continue;
-    const ang=rnd(0,6.28),rad=rnd(14,70);const w={tx:px,ty:py,hx:cl(px+Math.cos(ang)*rad,2,W-2),hy:cl(py+Math.sin(ang)*rad,bandTop-30,H-2),x:0,y:0,r:rnd(.55,1),a:rnd(.25,.6),ph:rnd(0,6.28),d:Math.random()};
-    words.push(w);const k=key(px,py);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(w)}
+    addStar(px,py)}
   /* link each star to the stars it can reach along the centreline within a short walk */
-  const idx=new Int32Array(bw*bh).fill(-1);words.forEach((w,i)=>{idx[(w.ty-y0b)*bw+w.tx]=i});const D=Math.round(step*2.2);const seen=new Int32Array(bw*bh).fill(-1);
+  const idx=new Int32Array(bw*bh).fill(-1);words.forEach((w,i)=>{idx[(w.ty-y0b)*bw+w.tx]=i});const D=Math.round(step*1.9);const seen=new Int32Array(bw*bh).fill(-1);
   words.forEach((w,i)=>{let frontier=[[w.tx,w.ty-y0b,0]];seen[(w.ty-y0b)*bw+w.tx]=i;
     while(frontier.length){const nf=[];for(const [x,y,d] of frontier){if(d>=D)continue;for(let j=-1;j<=1;j++)for(let k=-1;k<=1;k++){if(!j&&!k)continue;const nx=x+k,ny=y+j;if(nx<0||ny<0||nx>=bw||ny>=bh)continue;const q=ny*bw+nx;if(!m[q]||seen[q]===i)continue;seen[q]=i;
       const o2=idx[q];if(o2>=0&&o2!==i){if(o2>i)wedges.push([w,words[o2]]);continue}nf.push([nx,ny,d+1])}}frontier=nf}});
+  /* one chain per stroke: drop any link that merely shortcuts past a neighbouring star */
+  const adj=new Map();const addA=(a,b)=>{if(!adj.has(a))adj.set(a,new Set());adj.get(a).add(b)};wedges.forEach(([a,b])=>{addA(a,b);addA(b,a)});
+  const dd=(a,b)=>Math.hypot(a.tx-b.tx,a.ty-b.ty);
+  wedges=wedges.filter(([a,c])=>{const dac=dd(a,c);for(const b of adj.get(a)){if(b===c)continue;if(adj.get(b).has(c)&&dd(a,b)+dd(b,c)<dac*1.4)return false}return true});
   words.forEach(w=>{w.x=w.hx;w.y=w.hy})}
 
 function draw(){const t=(performance.now()-t0)/1000;ctx.clearRect(0,0,W,H);

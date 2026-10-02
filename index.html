@@ -922,7 +922,7 @@ const PATTERNS=[
  {n:'Pegasus',p:[[.2,.2],[.75,.15],[.8,.7],[.25,.75],[.05,.98]],e:[[0,1],[1,2],[2,3],[3,0],[3,4]]},
  {n:'Bootes',p:[[.5,1],[.3,.6],[.4,.2],[.6,0],[.75,.3],[.7,.65]],e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]]}
 ];
-let W=0,H=0,stars=[],words=[],text=null,con=null,order=[],oi=0,wordsState='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,contentRect=null,loopTimer=null,t0=performance.now(),started=false;
+let W=0,H=0,stars=[],words=[],wedges=[],text=null,con=null,order=[],oi=0,wordsState='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,contentRect=null,loopTimer=null,t0=performance.now(),started=false;
 
 function size(){const r=hero.getBoundingClientRect();W=Math.max(1,Math.round(r.width));H=Math.max(1,Math.round(r.height));const DPR=Math.min(2,devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
   const c=hero.querySelector('.hero-content').getBoundingClientRect();contentRect={x:c.left-r.left,y:c.top-r.top,w:c.width,h:c.height};bandTop=contentRect.y+contentRect.h+22;bandH=Math.max(70,H-bandTop-28);textW=Math.min(W-32,780);
@@ -930,24 +930,42 @@ function size(){const r=hero.getBoundingClientRect();W=Math.max(1,Math.round(r.w
 function seed(){const n=Math.round(W*H/4600);stars=[];for(let i=0;i<n;i++)stars.push(mkStar(rnd(0,W),rnd(0,H)))}
 function mkStar(x,y){return {x,y,ox:x,oy:y,r:rnd(.35,1.5),a:rnd(.25,.9),ph:rnd(0,6.28),tw:rnd(.3,1.2),vx:rnd(-.02,.02),vy:rnd(-.015,.015),g:0,held:false,born:1}}
 function targets(){const off=document.createElement('canvas');off.width=W;off.height=H;const o=off.getContext('2d');
-  let fs=Math.min(60,bandH/2.4);const font=s=>`500 ${s}px "Cormorant Garamond", Georgia, serif`;o.font=font(fs);o.textAlign='center';o.textBaseline='middle';o.fillStyle='#fff';
+  let fs=Math.min(58,bandH/2.4);const font=s=>`400 ${s}px "Sora", "Helvetica Neue", Arial, sans-serif`;o.font=font(fs);o.textAlign='center';o.textBaseline='middle';o.fillStyle='#fff';
   const widest=Math.max(...LINES.map(l=>o.measureText(l).width));if(widest>textW){fs=fs*textW/widest;o.font=font(fs)}
   const lh=fs*1.1,y0=bandTop+(bandH-lh*LINES.length)/2+lh/2;LINES.forEach((l,i)=>o.fillText(l,W/2,y0+i*lh));text={font:font(fs),lh,y0};
-  const step=Math.max(3,Math.round(fs/8));const img=o.getImageData(0,0,W,H).data;words=[];
-  for(let y=Math.floor(bandTop);y<H;y+=step)for(let x=0;x<W;x+=step){if(img[(y*W+x)*4+3]>140){const ang=rnd(0,6.28),rad=rnd(14,70);
-    words.push({tx:x,ty:y,hx:cl(x+Math.cos(ang)*rad,2,W-2),hy:cl(y+Math.sin(ang)*rad,bandTop-30,H-2),x:0,y:0,r:rnd(.5,.95),a:rnd(.25,.6),ph:rnd(0,6.28),d:Math.random()})}}
+  const step=Math.max(4,Math.round(fs/6.5));const img=o.getImageData(0,0,W,H).data;words=[];wedges=[];
+  /* binary mask of the band, thinned to a one pixel centreline (Zhang-Suen) */
+  const y0b=Math.floor(bandTop),bh=H-y0b,bw=W;const m=new Uint8Array(bw*bh);
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++)m[y*bw+x]=img[((y+y0b)*W+x)*4+3]>140?1:0;
+  const at=(x,y)=>(x<0||y<0||x>=bw||y>=bh)?0:m[y*bw+x];
+  for(let iter=0;iter<40;iter++){let changed=false;for(let pass=0;pass<2;pass++){const del=[];
+    for(let y=1;y<bh-1;y++)for(let x=1;x<bw-1;x++){if(!m[y*bw+x])continue;const p2=at(x,y-1),p3=at(x+1,y-1),p4=at(x+1,y),p5=at(x+1,y+1),p6=at(x,y+1),p7=at(x-1,y+1),p8=at(x-1,y),p9=at(x-1,y-1);
+      const B=p2+p3+p4+p5+p6+p7+p8+p9;if(B<2||B>6)continue;const seq=[p2,p3,p4,p5,p6,p7,p8,p9,p2];let A=0;for(let i=0;i<8;i++)if(seq[i]===0&&seq[i+1]===1)A++;if(A!==1)continue;
+      if(pass===0){if(p2*p4*p6!==0||p4*p6*p8!==0)continue}else{if(p2*p4*p8!==0||p2*p6*p8!==0)continue}del.push(y*bw+x)}
+    if(del.length){changed=true;for(const i of del)m[i]=0}}if(!changed)break}
+  for(let k=0;k<1;k++){const ends=[];for(let y=1;y<bh-1;y++)for(let x=1;x<bw-1;x++){if(!m[y*bw+x])continue;let n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if((i||j)&&at(x+i,y+j))n++;if(n<=1)ends.push(y*bw+x)}for(const i of ends)m[i]=0}
+  /* stars spaced evenly along the centreline, then edges between close neighbours = one line through the stars */
+  const cell=step,grid=new Map();const key=(x,y)=>((x/cell)|0)+','+((y/cell)|0);
+  const near=(x,y,r)=>{const gx=(x/cell)|0,gy=(y/cell)|0;for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const b=grid.get((gx+i)+','+(gy+j));if(!b)continue;for(const w of b){if(Math.hypot(w.tx-x,w.ty-y)<r)return true}}return false};
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){if(!m[y*bw+x])continue;const px=x,py=y+y0b;if(near(px,py,step*.9))continue;
+    const ang=rnd(0,6.28),rad=rnd(14,70);const w={tx:px,ty:py,hx:cl(px+Math.cos(ang)*rad,2,W-2),hy:cl(py+Math.sin(ang)*rad,bandTop-30,H-2),x:0,y:0,r:rnd(.55,1),a:rnd(.25,.6),ph:rnd(0,6.28),d:Math.random()};
+    words.push(w);const k=key(px,py);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(w)}
+  /* link each star to the stars it can reach along the centreline within a short walk */
+  const idx=new Int32Array(bw*bh).fill(-1);words.forEach((w,i)=>{idx[(w.ty-y0b)*bw+w.tx]=i});const D=Math.round(step*2.2);const seen=new Int32Array(bw*bh).fill(-1);
+  words.forEach((w,i)=>{let frontier=[[w.tx,w.ty-y0b,0]];seen[(w.ty-y0b)*bw+w.tx]=i;
+    while(frontier.length){const nf=[];for(const [x,y,d] of frontier){if(d>=D)continue;for(let j=-1;j<=1;j++)for(let k=-1;k<=1;k++){if(!j&&!k)continue;const nx=x+k,ny=y+j;if(nx<0||ny<0||nx>=bw||ny>=bh)continue;const q=ny*bw+nx;if(!m[q]||seen[q]===i)continue;seen[q]=i;
+      const o2=idx[q];if(o2>=0&&o2!==i){if(o2>i)wedges.push([w,words[o2]]);continue}nf.push([nx,ny,d+1])}}frontier=nf}});
   words.forEach(w=>{w.x=w.hx;w.y=w.hy})}
 
 function draw(){const t=(performance.now()-t0)/1000;ctx.clearRect(0,0,W,H);
   for(const s of stars){if(!RM&&!s.held){s.x+=s.vx;s.y+=s.vy;s.ox=s.x;s.oy=s.y;if(s.x<0)s.x=s.ox=W;if(s.x>W)s.x=s.ox=0;if(s.y<0)s.y=s.oy=H;if(s.y>H)s.y=s.oy=0}
-    const a=s.a*s.born*(RM?1:.72+.28*Math.sin(t*s.tw+s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r+s.g*1.1,0,6.283);ctx.fillStyle=`rgba(240,240,242,${cl(a+s.g*.5,0,1)})`;ctx.fill();
-    if(s.g>0){ctx.beginPath();ctx.arc(s.x,s.y,s.r+6*s.g,0,6.283);ctx.fillStyle=`rgba(123,179,255,${.16*s.g})`;ctx.fill()}}
+    const a=s.a*s.born*(RM?1:.72+.28*Math.sin(t*s.tw+s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r+s.g*.35,0,6.283);ctx.fillStyle=`rgba(240,240,242,${cl(a+s.g*.3,0,1)})`;ctx.fill()}
   const A=anim.align;
   for(const w of words){const k=sm(cl((A-w.d*.6)/.4,0,1));const jx=RM?0:Math.sin(t*.5+w.ph)*.9*(1-k),jy=RM?0:Math.cos(t*.45+w.ph)*.9*(1-k);
     w.x=w.hx+(w.tx-w.hx)*k+jx;w.y=w.hy+(w.ty-w.hy)*k+jy;const a=w.a+(.95-w.a)*k,r=w.r+(1.0-w.r)*k;
     ctx.beginPath();ctx.arc(w.x,w.y,r,0,6.283);ctx.fillStyle=`rgba(240,240,242,${a*(RM?1:.86+.14*Math.sin(t*1.1+w.ph))})`;ctx.fill()}
-  if(anim.line>0&&text){ctx.save();ctx.beginPath();ctx.rect(0,bandTop-10,W*anim.line,bandH+20);ctx.clip();ctx.font=text.font;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=.9;ctx.strokeStyle='rgba(123,179,255,.6)';ctx.lineJoin='round';
-    LINES.forEach((l,i)=>ctx.strokeText(l,W/2,text.y0+i*text.lh));ctx.restore()}
+  if(anim.line>0&&wedges.length){ctx.save();ctx.beginPath();ctx.rect(0,bandTop-10,W*anim.line,bandH+20);ctx.clip();ctx.lineWidth=.9;ctx.strokeStyle='rgba(123,179,255,.62)';ctx.lineCap='round';ctx.beginPath();
+    for(const [a,b] of wedges){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)}ctx.stroke();ctx.restore()}
   if(con&&con.alpha>0){ctx.lineWidth=1.1;ctx.strokeStyle=`rgba(123,179,255,${.75*con.alpha})`;ctx.lineCap='round';
     for(const sg of con.segs){if(sg.p<=0)continue;ctx.beginPath();ctx.moveTo(sg.a.x,sg.a.y);ctx.lineTo(sg.a.x+(sg.b.x-sg.a.x)*sg.p,sg.a.y+(sg.b.y-sg.a.y)*sg.p);ctx.stroke()}
     if(con.label){ctx.font='500 10px "IBM Plex Mono", monospace';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle=`rgba(110,160,247,${.7*con.alpha*con.labelA})`;ctx.fillText(con.label.t.toUpperCase(),con.label.x,con.label.y)}}}

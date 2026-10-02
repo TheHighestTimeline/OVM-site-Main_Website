@@ -998,7 +998,7 @@ function showConstellation(pat,at,done){const pts=placePattern(pat,at);const use
 
 function formWords(){if(wordsState!=='idle')return;wordsState='forming';gsap.to(anim,{align:1,duration:1.9,ease:'none',onComplete:()=>gsap.to(anim,{line:1,duration:1.3,ease:'none',onComplete:()=>{wordsState='done'}})})}
 function shuffle(){order=PATTERNS.map((p,i)=>i).sort(()=>Math.random()-.5);oi=0}
-function next(at){if(con||RM||!contentRect)return;if(oi>=order.length)shuffle();const pat=PATTERNS[order[oi++]];showConstellation(pat,at,()=>{if(wordsState==='idle')formWords();clearTimeout(loopTimer);loopTimer=setTimeout(()=>{if(visible)next()},1600)})}
+function next(at){if(con||RM||!contentRect)return;if(oi>=order.length)shuffle();const pat=PATTERNS[order[oi++]];showConstellation(pat,at,()=>{if(wordsState==='idle')formWords();clearTimeout(loopTimer);loopTimer=setTimeout(()=>next(),1600)})}
 function start(){if(started||RM||!contentRect)return;started=true;shuffle();next()}
 
 /* desktop: trace your own constellation by moving across the stars; the automatic ones keep coming */
@@ -1010,9 +1010,10 @@ if(HOVER&&!RM){hero.addEventListener('pointermove',e=>{const r=hero.getBoundingC
     clearTimeout(userIdle);userIdle=setTimeout(fadeUser,user.stars.length>=9?1800:2600)});
   hero.addEventListener('pointerleave',()=>{clearTimeout(userIdle);userIdle=setTimeout(fadeUser,1200)})}
 
-new IntersectionObserver(es=>{es.forEach(en=>{visible=en.isIntersecting;if(RM)return;if(visible){if(!started)start();else if(!con){clearTimeout(loopTimer);loopTimer=setTimeout(()=>{if(visible)next()},400)}}})},{threshold:[0,.2]}).observe(hero);
-let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const keep=wordsState==='done';con&&gsap.killTweensOf(con);con=null;size();if(keep||RM){anim.align=1;anim.line=1}if(RM)draw()},200)});
-document.fonts.ready.then(()=>{size();if(RM){anim.align=1;anim.line=1;draw();return}gsap.ticker.add(()=>{if(visible)draw()});draw();if(visible)start()});
+/* the sky runs continuously; nothing waits on scroll position or visibility */
+visible=true;
+let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const keep=wordsState==='done';con&&gsap.killTweensOf(con);con=null;clearTimeout(loopTimer);size();if(keep||RM){anim.align=1;anim.line=1}if(RM)draw();else loopTimer=setTimeout(()=>next(),800)},200)});
+document.fonts.ready.then(()=>{size();if(RM){anim.align=1;anim.line=1;draw();return}gsap.ticker.add(draw);draw();start()});
 window.__sky={next,formWords,state:()=>({wordsState,align:anim.align,line:anim.line,con:!!con,visible}),snap:()=>{anim.align=1;anim.line=1;draw()}};
 })();
 

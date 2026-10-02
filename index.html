@@ -959,8 +959,7 @@ function targets(){const off=document.createElement('canvas');off.width=W;off.he
 
 function draw(){const t=(performance.now()-t0)/1000;ctx.clearRect(0,0,W,H);
   for(const s of stars){if(!RM&&!s.held){s.x+=s.vx;s.y+=s.vy;s.ox=s.x;s.oy=s.y;if(s.x<0)s.x=s.ox=W;if(s.x>W)s.x=s.ox=0;if(s.y<0)s.y=s.oy=H;if(s.y>H)s.y=s.oy=0}
-    const a=s.a*s.born*(RM?1:.72+.28*Math.sin(t*s.tw+s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r+s.g*1.1,0,6.283);ctx.fillStyle=`rgba(240,240,242,${cl(a+s.g*.5,0,1)})`;ctx.fill();
-    if(s.g>0){ctx.beginPath();ctx.arc(s.x,s.y,s.r+6*s.g,0,6.283);ctx.fillStyle=`rgba(123,179,255,${.16*s.g})`;ctx.fill()}}
+    const a=s.a*s.born*(RM?1:.72+.28*Math.sin(t*s.tw+s.ph));ctx.beginPath();ctx.arc(s.x,s.y,s.r+s.g*.35,0,6.283);ctx.fillStyle=`rgba(240,240,242,${cl(a+s.g*.3,0,1)})`;ctx.fill()}
   const A=anim.align;
   for(const w of words){const k=sm(cl((A-w.d*.6)/.4,0,1));const jx=RM?0:Math.sin(t*.5+w.ph)*.9*(1-k),jy=RM?0:Math.cos(t*.45+w.ph)*.9*(1-k);
     w.x=w.hx+(w.tx-w.hx)*k+jx;w.y=w.hy+(w.ty-w.hy)*k+jy;const a=w.a+(.95-w.a)*k,r=w.r+(1.0-w.r)*k;

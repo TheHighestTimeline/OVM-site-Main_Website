@@ -922,7 +922,7 @@ const PATTERNS=[
  {n:'Pegasus',p:[[.2,.2],[.75,.15],[.8,.7],[.25,.75],[.05,.98]],e:[[0,1],[1,2],[2,3],[3,0],[3,4]]},
  {n:'Bootes',p:[[.5,1],[.3,.6],[.4,.2],[.6,0],[.75,.3],[.7,.65]],e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]]}
 ];
-let W=0,H=0,stars=[],words=[],wedges=[],text=null,con=null,order=[],oi=0,wordsState='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,contentRect=null,loopTimer=null,t0=performance.now(),started=false;
+let W=0,H=0,stars=[],words=[],wedges=[],users=[],user=null,userIdle=null,text=null,con=null,order=[],oi=0,wordsState='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,contentRect=null,loopTimer=null,t0=performance.now(),started=false;
 
 function size(){const r=hero.getBoundingClientRect();W=Math.max(1,Math.round(r.width));H=Math.max(1,Math.round(r.height));const DPR=Math.min(2,devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
   const c=hero.querySelector('.hero-content').getBoundingClientRect();contentRect={x:c.left-r.left,y:c.top-r.top,w:c.width,h:c.height};bandTop=contentRect.y+contentRect.h+22;bandH=Math.max(70,H-bandTop-28);textW=Math.min(W-32,780);
@@ -974,7 +974,9 @@ function draw(){const t=(performance.now()-t0)/1000;ctx.clearRect(0,0,W,H);
     for(const [a,b] of wedges){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)}ctx.stroke();ctx.restore()}
   if(con&&con.alpha>0){ctx.lineWidth=1.1;ctx.strokeStyle=`rgba(123,179,255,${.75*con.alpha})`;ctx.lineCap='round';
     for(const sg of con.segs){if(sg.p<=0)continue;ctx.beginPath();ctx.moveTo(sg.a.x,sg.a.y);ctx.lineTo(sg.a.x+(sg.b.x-sg.a.x)*sg.p,sg.a.y+(sg.b.y-sg.a.y)*sg.p);ctx.stroke()}
-    if(con.label){ctx.font='500 10px "IBM Plex Mono", monospace';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle=`rgba(110,160,247,${.7*con.alpha*con.labelA})`;ctx.fillText(con.label.t.toUpperCase(),con.label.x,con.label.y)}}}
+    if(con.label){ctx.font='500 10px "IBM Plex Mono", monospace';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle=`rgba(110,160,247,${.7*con.alpha*con.labelA})`;ctx.fillText(con.label.t.toUpperCase(),con.label.x,con.label.y)}}
+  users=users.filter(u=>u.alpha>0);for(const u of (user?users.concat([user]):users)){ctx.lineWidth=1.1;ctx.strokeStyle=`rgba(123,179,255,${.75*u.alpha})`;ctx.lineCap='round';
+    for(const sg of u.segs){if(sg.p<=0)continue;ctx.beginPath();ctx.moveTo(sg.a.x,sg.a.y);ctx.lineTo(sg.a.x+(sg.b.x-sg.a.x)*sg.p,sg.a.y+(sg.b.y-sg.a.y)*sg.p);ctx.stroke()}}}
 
 /* where a constellation may go: the open sky around the copy */
 function regions(){const c=contentRect;const R=[{x:16,y:12,w:W-32,h:c.y-24},{x:16,y:12,w:c.x-32,h:bandTop-24},{x:c.x+c.w+16,y:12,w:W-(c.x+c.w)-32,h:bandTop-24}];
@@ -987,7 +989,7 @@ function placePattern(pat,at){const xs=pat.p.map(q=>q[0]),ys=pat.p.map(q=>q[1]);
   const rot=rnd(-.15,.15),cx=x0+pw/2,cy=y0+ph/2;
   return pat.p.map(q=>{const px=x0+(q[0]-Math.min(...xs))*s-cx,py=y0+(q[1]-Math.min(...ys))*s-cy;return {x:cx+px*Math.cos(rot)-py*Math.sin(rot),y:cy+px*Math.sin(rot)+py*Math.cos(rot)}})}
 
-function showConstellation(pat,at,done){const pts=placePattern(pat,at);const used=new Set();const members=pts.map(p=>{let best=null,bd=70;for(const s of stars){if(used.has(s)||s.held)continue;const dd=dist(p,s);if(dd<bd){bd=dd;best=s}}
+function showConstellation(pat,at,done){const pts=placePattern(pat,at);const used=new Set();const members=pts.map(p=>{let best=null,bd=70;for(const s of stars){if(used.has(s)||s.held||(user&&user.stars.includes(s)))continue;const dd=dist(p,s);if(dd<bd){bd=dd;best=s}}
     if(!best){best=mkStar(p.x,p.y);best.born=0;stars.push(best);gsap.to(best,{born:1,duration:.5})}used.add(best);best.held=true;gsap.to(best,{x:p.x,y:p.y,g:1,duration:.55,ease:'power2.out',overwrite:'auto'});return best});
   const segs=pat.e.map(([i,j])=>({a:members[i],b:members[j],p:0}));const lx=Math.max(...pts.map(p=>p.x)),ly=Math.max(...pts.map(p=>p.y));
   con={segs,alpha:1,members,label:{t:pat.n,x:Math.min(lx+10,W-90),y:Math.min(ly+6,H-16)},labelA:0};
@@ -999,7 +1001,14 @@ function shuffle(){order=PATTERNS.map((p,i)=>i).sort(()=>Math.random()-.5);oi=0}
 function next(at){if(con||RM||!contentRect)return;if(oi>=order.length)shuffle();const pat=PATTERNS[order[oi++]];showConstellation(pat,at,()=>{if(wordsState==='idle')formWords();clearTimeout(loopTimer);loopTimer=setTimeout(()=>{if(visible)next()},1600)})}
 function start(){if(started||RM||!contentRect)return;started=true;shuffle();next()}
 
-if(HOVER&&!RM){let lastAt=0;hero.addEventListener('pointermove',e=>{const now=performance.now();if(con||now-lastAt<300)return;lastAt=now;const r=hero.getBoundingClientRect();const p={x:e.clientX-r.left,y:e.clientY-r.top};if(p.y<bandTop-20){clearTimeout(loopTimer);next(p)}})}
+/* desktop: trace your own constellation by moving across the stars; the automatic ones keep coming */
+function fadeUser(){clearTimeout(userIdle);if(!user)return;const u=user;user=null;users.push(u);gsap.to(u,{alpha:0,duration:1.1,delay:.6,onComplete:()=>{u.stars.forEach(st=>gsap.to(st,{g:0,duration:.6,overwrite:'auto'}))}})}
+if(HOVER&&!RM){hero.addEventListener('pointermove',e=>{const r=hero.getBoundingClientRect();const p={x:e.clientX-r.left,y:e.clientY-r.top};if(p.y>bandTop-10)return;
+    let best=null,bd=60;for(const st of stars){if(st.held||st.born<1||(user&&user.stars.includes(st)))continue;const dd=dist(p,st);if(dd<bd){bd=dd;best=st}}
+    if(!best)return;if(!user)user={stars:[],segs:[],alpha:1};const last=user.stars[user.stars.length-1];if(last){const dd=dist(last,best);if(dd<28||dd>230)return}
+    user.stars.push(best);gsap.to(best,{g:1,duration:.3,overwrite:'auto'});if(last){const sg={a:last,b:best,p:0};user.segs.push(sg);gsap.to(sg,{p:1,duration:.22,ease:'power2.out'})}
+    clearTimeout(userIdle);userIdle=setTimeout(fadeUser,user.stars.length>=9?1800:2600)});
+  hero.addEventListener('pointerleave',()=>{clearTimeout(userIdle);userIdle=setTimeout(fadeUser,1200)})}
 
 new IntersectionObserver(es=>{es.forEach(en=>{visible=en.isIntersecting;if(RM)return;if(visible){if(!started)start();else if(!con){clearTimeout(loopTimer);loopTimer=setTimeout(()=>{if(visible)next()},400)}}})},{threshold:[0,.2]}).observe(hero);
 let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const keep=wordsState==='done';con&&gsap.killTweensOf(con);con=null;size();if(keep||RM){anim.align=1;anim.line=1}if(RM)draw()},200)});

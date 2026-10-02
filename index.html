@@ -904,7 +904,7 @@ const hero=document.querySelector('.hero'),cv=document.getElementById('skyCanvas
 const ctx=cv.getContext('2d');const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;const HOVER=matchMedia('(hover:hover) and (pointer:fine)').matches;
 const LINES=['You are the star.','We just connect the dots.'];const CHAIN_LEN=7;
 const rnd=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),sm=t=>t*t*(3-2*t),cl=(v,a,b)=>Math.max(a,Math.min(b,v));
-let W=0,H=0,stars=[],dust=[],text=null,chains=[],chain=null,state='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,idleTimer=null,holdTimer=null,t0=performance.now();
+let W=0,H=0,stars=[],dust=[],text=null,chains=[],runId=0,autoTimer=null,chain=null,state='idle',anim={align:0,line:0},visible=false,bandTop=0,bandH=0,textW=0,idleTimer=null,holdTimer=null,t0=performance.now();
 
 function size(){const r=hero.getBoundingClientRect();W=Math.max(1,Math.round(r.width));H=Math.max(1,Math.round(r.height));const DPR=Math.min(2,devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
   const c=hero.querySelector('.hero-content').getBoundingClientRect();bandTop=c.bottom-r.top+22;bandH=Math.max(70,H-bandTop-28);textW=Math.min(W-32,780);
@@ -945,29 +945,32 @@ function finishChain(){chains.push(chain);chain=null;align()}
 function align(){if(state!=='idle')return;state='aligning';
   gsap.to(anim,{align:1,duration:2.8,ease:'none',onComplete:()=>{gsap.to(anim,{line:1,duration:2.4,ease:'none',onComplete:()=>{state='aligned';holdTimer=setTimeout(dissolve,9000)}})}})}
 function dissolve(){clearTimeout(holdTimer);state='dissolving';chains.slice().forEach(fadeChain);
-  gsap.to(anim,{line:0,duration:.6,ease:'none'});gsap.to(anim,{align:0,duration:1.6,ease:'power2.inOut',delay:.3,onComplete:()=>{state='idle'}})}
+  gsap.to(anim,{line:0,duration:.6,ease:'none'});gsap.to(anim,{align:0,duration:1.6,ease:'power2.inOut',delay:.3,onComplete:()=>{state='idle';if(visible)scheduleAuto(HOVER?8000:3000)}})}
 
 /* phones and touch: a constellation draws itself near the top of the sky, then the words gather */
-function autoChain(done){const c=newChain();chain=c;const pool=stars.filter(s=>s.y<bandTop*.8);let cur=pool[Math.floor(rnd(0,pool.length))];if(!cur){done();return}
-  const used=new Set();const step=()=>{if(c.stars.length>=6){chain=null;chains.push(c);done();return}
+function autoChain(id,done){const c=newChain();chain=c;const pool=stars.filter(s=>s.y<bandTop*.8);let cur=pool[Math.floor(rnd(0,pool.length))];if(!cur){done();return}
+  const used=new Set();const step=()=>{if(id!==runId)return;if(c.stars.length>=6){chain=null;chains.push(c);done();return}
     if(c.stars.length){let best=null,bd=1e9;for(const s of pool){if(used.has(s))continue;const dd=dist(cur,s);if(dd>=40&&dd<=200&&dd<bd){bd=dd;best=s}}
       if(!best){chain=null;chains.push(c);done();return}cur=best}
-    used.add(cur);addStar(c,cur);setTimeout(step,380)};step()}
-function autoRun(){if(state!=='idle'||chain)return;autoChain(()=>setTimeout(()=>autoChain(()=>{state==='idle'&&align()}),300))}
+    used.add(cur);addStar(c,cur);autoTimer=setTimeout(step,380)};step()}
+function autoRun(){if(!visible||state!=='idle'||chain)return;const id=++runId;autoChain(id,()=>{autoTimer=setTimeout(()=>autoChain(id,()=>{if(id===runId&&state==='idle')align()}),300)})}
+function scheduleAuto(ms){clearTimeout(autoTimer);autoTimer=setTimeout(autoRun,ms)}
+function abortAll(){runId++;clearTimeout(autoTimer);clearTimeout(holdTimer);clearTimeout(idleTimer);gsap.killTweensOf(anim);anim.align=0;anim.line=0;
+  (chain?chains.concat([chain]):chains).forEach(c=>c.stars.forEach(s=>{gsap.killTweensOf(s);s.g=0}));chains=[];chain=null;state='idle'}
 
 /* desktop: trace your own */
 if(HOVER&&!RM){hero.addEventListener('pointermove',e=>{if(state!=='idle')return;const r=hero.getBoundingClientRect();const p={x:e.clientX-r.left,y:e.clientY-r.top};
   let best=null,bd=70;for(const s of stars){if(chain&&chain.stars.includes(s))continue;const dd=dist(p,s);if(dd<bd){bd=dd;best=s}}
-  if(!best)return;if(!chain)chain=newChain();const last=chain.stars[chain.stars.length-1];
+  if(!best)return;clearTimeout(autoTimer);if(!chain)chain=newChain();const last=chain.stars[chain.stars.length-1];
   if(last){const dd=dist(last,best);if(dd<40||dd>280)return}addStar(chain,best);
-  clearTimeout(idleTimer);if(chain.stars.length>=CHAIN_LEN){finishChain()}else{idleTimer=setTimeout(()=>{if(chain&&chain.stars.length<CHAIN_LEN){const c=chain;chain=null;chains.push(c);fadeChain(c)}},6000)}});
+  clearTimeout(idleTimer);if(chain.stars.length>=CHAIN_LEN){finishChain()}else{idleTimer=setTimeout(()=>{if(chain&&chain.stars.length<CHAIN_LEN){const c=chain;chain=null;chains.push(c);fadeChain(c)}scheduleAuto(4000)},6000)}});
   hero.addEventListener('pointerleave',()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>{if(chain&&state==='idle'){const c=chain;chain=null;chains.push(c);fadeChain(c)}},3500)})}
 
-let autoFired=false;
-new IntersectionObserver(es=>{es.forEach(en=>{visible=en.isIntersecting;if(visible&&!RM&&!HOVER&&!autoFired){autoFired=true;setTimeout(autoRun,600)}})},{threshold:.35}).observe(hero);
-let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{clearTimeout(holdTimer);gsap.killTweensOf(anim);anim.align=0;anim.line=0;chains=[];chain=null;state='idle';size();if(RM){anim.align=1;anim.line=1;draw()}},200)});
+new IntersectionObserver(es=>{es.forEach(en=>{const was=visible;visible=en.isIntersecting;if(RM)return;
+  if(visible&&!was){scheduleAuto(HOVER?6000:500)}else if(!visible&&was){abortAll()}})},{threshold:.45}).observe(hero);
+let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{abortAll();size();if(visible&&!RM)scheduleAuto(HOVER?6000:500);if(RM){anim.align=1;anim.line=1;draw()}},200)});
 document.fonts.ready.then(()=>{size();if(RM){anim.align=1;anim.line=1;draw();return}gsap.ticker.add(()=>{if(visible)draw()});draw()});
-window.__sky={align,dissolve,autoRun,snap:()=>{anim.align=1;anim.line=1;draw()}};
+window.__sky={align,dissolve,autoRun,state:()=>({state,align:anim.align,line:anim.line,chains:chains.length,visible}),snap:()=>{anim.align=1;anim.line=1;draw()}};
 })();
 
 </script>
